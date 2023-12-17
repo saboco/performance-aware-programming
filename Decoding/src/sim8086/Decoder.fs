@@ -436,7 +436,7 @@ module Decoding8086 =
                     if isWord then
                         read16bits stream[at + streamOffset] stream[at + streamOffset + 1] isWord, streamOffset + 2
                     else
-                        read8bits stream[at + streamOffset] isWord, streamOffset + 1
+                        read8bits stream[at + streamOffset] (not isWord), streamOffset + 1
 
                 instructions.Add(Instruction.MovImmediateRegisterMemory (destination, data, isWord))
 
@@ -451,7 +451,7 @@ module Decoding8086 =
                     if isWord then
                         read16bits stream[at + streamOffset] stream[at + streamOffset + 1] isWord, streamOffset + 2
                     else
-                        read8bits stream[at + streamOffset] isWord, streamOffset + 1
+                        read8bits stream[at + streamOffset] (not isWord), streamOffset + 1
 
                 instructions.Add(Instruction.MovImmediateRegisterMemory(Register (Registers.fromId reg w), data, isWord))
                 at <- at + streamOffset
@@ -608,7 +608,7 @@ module Decoding8086 =
                     if isWord then
                         read16bits stream[at+streamOffset] stream[at+streamOffset+1] isWord, streamOffset + 2
                     else
-                        read8bits stream[at+streamOffset] isWord, streamOffset + 1
+                        read8bits stream[at+streamOffset] (not isWord), streamOffset + 1
                      
                 if isWord then
                     instructions.Add(Instruction.AddImmediateToRegisterMemory(Register Register.AX, data, isWord))
@@ -623,7 +623,7 @@ module Decoding8086 =
                     if isWord then
                         read16bits stream[at+streamOffset] stream[at+streamOffset+1] isWord, streamOffset + 2
                     else
-                        read8bits stream[at+streamOffset] isWord, streamOffset + 1
+                        read8bits stream[at+streamOffset] (not isWord), streamOffset + 1
                 
                 if isWord then
                     instructions.Add(Instruction.SubImmediateToRegisterMemory(Register Register.AX, data, isWord))
@@ -638,7 +638,7 @@ module Decoding8086 =
                     if isWord then
                         read16bits stream[at+streamOffset] stream[at+streamOffset+1] isWord, streamOffset + 2
                     else
-                        read8bits stream[at+streamOffset] isWord, streamOffset + 1
+                        read8bits stream[at+streamOffset] (not isWord), streamOffset + 1
                 
                 if isWord then
                     instructions.Add(Instruction.CmpImmediateToRegisterMemory(Register Register.AX, data, isWord))

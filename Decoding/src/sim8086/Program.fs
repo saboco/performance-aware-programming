@@ -9,7 +9,7 @@ let main (argv : string[]) =
     let files = Directory.EnumerateFiles(srcDirectory)
     
     for file in files do
-        if Path.GetExtension(file) = "" && Path.GetFileName(file).Contains("39") then
+        if Path.GetExtension(file) = "" then
             let dst = $"decoded_{Path.GetFileName(file)}.asm" 
             let asm = Decoder.Decoding8086.decodeFile file
             File.WriteAllText(Path.Combine(dstDirectory, dst), asm)
