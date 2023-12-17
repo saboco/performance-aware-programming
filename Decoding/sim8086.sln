@@ -1,0 +1,27 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{48534C7A-9875-4D90-81D0-D51693C19E44}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "sim8086", "src\sim8086\sim8086.fsproj", "{140BAE91-3C9B-4773-8FC5-47DB8E402059}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{140BAE91-3C9B-4773-8FC5-47DB8E402059}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{140BAE91-3C9B-4773-8FC5-47DB8E402059}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{140BAE91-3C9B-4773-8FC5-47DB8E402059}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{140BAE91-3C9B-4773-8FC5-47DB8E402059}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{140BAE91-3C9B-4773-8FC5-47DB8E402059} = {48534C7A-9875-4D90-81D0-D51693C19E44}
+	EndGlobalSection
+EndGlobal

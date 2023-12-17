@@ -1,4 +1,5 @@
-open System
+﻿module sim8086.Decoder
+
 open System.Text
 open System.IO
 
@@ -61,7 +62,7 @@ type Instruction =
     | Jcxz of int
 
 let isWord w = w = 0b1uy
-let isSigned s = s = 0b1uy
+let signExtend s = s = 0b1uy
 let destinationIsRegister d = d = 0b1uy
 let sourceIsRegister d = d = 0b0uy
 
@@ -76,7 +77,7 @@ module Registers =
         | 0b101uy -> if isWord w then Register.BP else Register.CH
         | 0b110uy -> if isWord w then Register.SI else Register.DH
         | 0b111uy -> if isWord w then Register.DI else Register.BH
-        | b -> failwithf $"Unkown register: %B{b}"
+        | b -> failwithf $"Unknown register: %B{b}"
 
     let effectiveAddress rm =
         match rm with
@@ -88,7 +89,7 @@ module Registers =
         | 0b101uy -> [|Register.DI|]
         | 0b110uy -> [|Register.BP|]
         | 0b111uy -> [|Register.BX|]
-        | b -> failwithf $"Unkown effective address case: %08B{b}"
+        | b -> failwithf $"Unknown effective address case: %08B{b}"
     
     let sprint register = 
         match register with
@@ -129,6 +130,8 @@ module Registers =
 
         if offset > 0 then
             sb.Append($" + {offset}") |> ignore
+        elif offset < 0 then
+            sb.Append($" - {-offset}") |> ignore
         
         sb.Append("]") |> ignore
         sb.ToString()
@@ -226,11 +229,11 @@ module Decoding8086 =
     let get7thBit byte = (byte >>> 1) &&& 0b00000001uy
     let get8thBit byte = byte &&& 0b00000001uy
     let getFirst2Bits byte = (byte >>> 6) &&& 0b00000011uy
-    let get3thto5thBits byte = (byte >>> 3) &&&  0b00000111uy
+    let get3thTo5thBits byte = (byte >>> 3) &&&  0b00000111uy
     let getLast3Bits byte = byte &&& 0b00000111uy
     let get5thBit byte = (byte >>> 3) &&& 0b00000001uy
  
-    // instuction 
+    // instruction 
     // opcode destination, source
 
     // encoded instruction 2 bytes
@@ -283,11 +286,23 @@ module Decoding8086 =
     let [<Literal>] REG_IS_SOURCE = 0b0uy
     let [<Literal>] REG_IS_DESTINATION = 0b1uy
 
-    let read16bits (bl : byte) (bh : byte) : int = 
+    let read16bits (bl : byte) (bh : byte) isSigned : int = 
         let bl = uint16 bl
         let bh = uint16 bh
         
-        int ((bh <<< 8) |||  bl)
+        if isSigned then
+            int (int16 ((bh <<< 8) |||  bl))
+        else    
+            int ((bh <<< 8) |||  bl)
+
+    let read8bits (b : byte) s =
+        let b = 
+            if s then
+                sbyte b |> int
+            else
+                int b
+        printfn $"[read8bits] %i{b}"
+        b
         
     let parseMemoryMode ``mod`` rm =
         if (``mod`` = 0b00uy && rm = 0b110uy) then
@@ -300,9 +315,10 @@ module Decoding8086 =
             Mode.Register
         else
             Mode.Memory0
+            
     let baseCase (stream : byte[]) at d w ``mod`` reg rm =
         let memoryMode = parseMemoryMode ``mod`` rm
-        
+        let isWord = isWord w
         let streamOffset = 2
 
         let source, destination, streamOffset = 
@@ -322,7 +338,7 @@ module Decoding8086 =
             | Mode.Memory0D16 ->
                 let register = Registers.fromId reg w |> Register
                 let address =
-                    DirectAddress (read16bits (stream[at + streamOffset]) (stream[at + streamOffset + 1]))
+                    DirectAddress (read16bits (stream[at + streamOffset]) (stream[at + streamOffset + 1]) isWord)
                 
                 if sourceIsRegister d then
                     register, address, streamOffset + 2
@@ -332,7 +348,7 @@ module Decoding8086 =
                 let register = Registers.fromId reg w |> Register
                 let address =
                     let registers = Registers.effectiveAddress rm
-                    let offset = int stream[at + streamOffset]
+                    let offset = read8bits stream[at + streamOffset] isWord
                     Formula (registers, offset)
                 
                 if sourceIsRegister d then
@@ -343,7 +359,7 @@ module Decoding8086 =
                 let register = Registers.fromId reg w |> Register
                 let address =
                     let registers = Registers.effectiveAddress rm
-                    let offset = read16bits stream[at + streamOffset] stream[at + streamOffset + 1]
+                    let offset = read16bits stream[at + streamOffset] stream[at + streamOffset + 1] isWord
                     Formula (registers, offset)
                 
                 if sourceIsRegister d then
@@ -383,13 +399,13 @@ module Decoding8086 =
             
             PrintTools.printByteWithPrefix $"[{i}]" stream[i]
             
-            // treating all cases individualy to be able to see patterns
+            // treating all cases individually to be able to see patterns
             match stream[i] with
             | opcode when (opcode >>> 2) = MOV ->
                 let d = get7thBit stream[i]
                 let w = get8thBit stream[i]
                 let ``mod`` = getFirst2Bits stream[i+1]
-                let reg = get3thto5thBits stream[i+1]
+                let reg = get3thTo5thBits stream[i+1]
                 let rm = getLast3Bits stream[i+1]
 
                 let source, destination, streamOffset = baseCase stream i d w ``mod`` reg rm
@@ -401,7 +417,7 @@ module Decoding8086 =
                 let w = get8thBit stream[i]
                 let isWord = isWord w
                 let ``mod`` = getFirst2Bits stream[i+1]
-                let _opcodeExtention = get3thto5thBits stream[i+1]
+                let _opcodeExtension = get3thTo5thBits stream[i+1]
                 let rm = getLast3Bits stream[i+1]
                 
                 let memoryMode = parseMemoryMode ``mod`` rm
@@ -411,16 +427,16 @@ module Decoding8086 =
                 let destination, streamOffset = 
                     match memoryMode with
                     | Mode.Memory0 -> Formula (Registers.effectiveAddress rm, 0), streamOffset
-                    | Mode.Memory0D16 -> DirectAddress (read16bits (stream[i + streamOffset]) (stream[i + streamOffset + 1])), streamOffset + 2
-                    | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, int stream[i + streamOffset]), streamOffset + 1
-                    | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[i + streamOffset] stream[i + streamOffset + 1]), streamOffset + 2
+                    | Mode.Memory0D16 -> DirectAddress (read16bits (stream[i + streamOffset]) (stream[i + streamOffset + 1]) isWord), streamOffset + 2
+                    | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, read8bits stream[i + streamOffset] isWord), streamOffset + 1
+                    | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[i + streamOffset] stream[i + streamOffset + 1] isWord), streamOffset + 2
                     | Mode.Register -> Register (Registers.fromId rm w), streamOffset
 
                 let data, streamOffset = 
                     if isWord then
-                        read16bits stream[i + 2 + streamOffset + 1] stream[i + streamOffset + 2], streamOffset + 2
+                        read16bits stream[i + streamOffset] stream[i + streamOffset + 1] isWord, streamOffset + 2
                     else
-                        int stream[i + streamOffset + 1], streamOffset + 1
+                        read8bits stream[i + streamOffset] isWord, streamOffset + 1
 
                 instructions.Add(Instruction.MovImmediateRegisterMemory (destination, data, isWord))
 
@@ -433,7 +449,7 @@ module Decoding8086 =
                 let streamOffset = 1
                 let data, streamOffset =
                     if isWord then
-                        read16bits stream[i + 2 + streamOffset + 1] stream[i + streamOffset + 2], streamOffset + 2
+                        read16bits stream[i + 2 + streamOffset + 1] stream[i + streamOffset + 2] isWord, streamOffset + 2
                     else
                         int stream[i + streamOffset + 1], streamOffset + 1
 
@@ -443,11 +459,11 @@ module Decoding8086 =
             | opcode when (opcode >>> 2) = MOVE_TO_FROM_ACCUMULATOR ->
                 let toMemory = (get7thBit stream[i]) = 0b1uy
                 let w = get8thBit stream[i]
-
+                let isWord = isWord w
                 let streamOffset = 1
                 let memory, streamOffset = 
-                    if isWord w then
-                        DirectAddress (read16bits stream[i+streamOffset] stream[i+streamOffset+1]), streamOffset + 2
+                    if isWord then
+                        DirectAddress (read16bits stream[i+streamOffset] stream[i+streamOffset+1] isWord), streamOffset + 2
                     else
                         DirectAddress (int stream[i+streamOffset]), streamOffset + 1
 
@@ -465,7 +481,7 @@ module Decoding8086 =
                 let d = get7thBit stream[i]
                 let w = get8thBit stream[i]
                 let ``mod`` = getFirst2Bits stream[i+1]
-                let reg = get3thto5thBits stream[i+1]
+                let reg = get3thTo5thBits stream[i+1]
                 let rm = getLast3Bits stream[i+1]
 
                 let source, destination, streamOffset = baseCase stream i d w ``mod`` reg rm
@@ -476,7 +492,7 @@ module Decoding8086 =
                 let d = get7thBit stream[i]
                 let w = get8thBit stream[i]
                 let ``mod`` = getFirst2Bits stream[i+1]
-                let reg = get3thto5thBits stream[i+1]
+                let reg = get3thTo5thBits stream[i+1]
                 let rm = getLast3Bits stream[i+1]
 
                 let source, destination, streamOffset = baseCase stream i d w ``mod`` reg rm
@@ -487,19 +503,20 @@ module Decoding8086 =
                 let d = get7thBit stream[i]
                 let w = get8thBit stream[i]
                 let ``mod`` = getFirst2Bits stream[i+1]
-                let reg = get3thto5thBits stream[i+1]
+                let reg = get3thTo5thBits stream[i+1]
                 let rm = getLast3Bits stream[i+1]
 
                 let source, destination, streamOffset = baseCase stream i d w ``mod`` reg rm
                 
                 instructions.Add(Instruction.Cmp (destination,source))
                 i <- i + streamOffset
-            | opcode when (opcode >>> 2) = ADD_IMMEDIATE_TO_REGISTER_MEMORY && (get3thto5thBits stream[i+1] = 0b000uy) ->
+            | opcode when (opcode >>> 2) = ADD_IMMEDIATE_TO_REGISTER_MEMORY && (get3thTo5thBits stream[i+1] = 0b000uy) ->
                 let s = get7thBit stream[i]
                 let w = get8thBit stream[i]
                 let isWord = isWord w
+                let signExtend = signExtend s
                 let ``mod`` = getFirst2Bits stream[i+1]
-                let _opcodeExtention = get3thto5thBits stream[i+1]
+                let _opcodeExtension = get3thTo5thBits stream[i+1]
                 let rm = getLast3Bits stream[i+1]
 
                 let memoryMode = parseMemoryMode ``mod`` rm
@@ -509,29 +526,27 @@ module Decoding8086 =
                 let destination, streamOffset = 
                     match memoryMode with
                     | Mode.Memory0 -> Formula (Registers.effectiveAddress rm, 0), streamOffset
-                    | Mode.Memory0D16 -> DirectAddress (read16bits (stream[i + streamOffset]) (stream[i + streamOffset + 1])), streamOffset + 2
-                    | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, int stream[i + streamOffset]), streamOffset + 1
-                    | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[i + streamOffset] stream[i + streamOffset + 1]), streamOffset + 2
+                    | Mode.Memory0D16 -> DirectAddress (read16bits (stream[i + streamOffset]) (stream[i + streamOffset + 1]) isWord), streamOffset + 2
+                    | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, read8bits stream[i + streamOffset] isWord), streamOffset + 1
+                    | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[i + streamOffset] stream[i + streamOffset + 1] isWord), streamOffset + 2
                     | Mode.Register -> Register (Registers.fromId rm w), streamOffset
                 
                 let data, streamOffset = 
-                    if not (isSigned s) && isWord then
-                        read16bits stream[i + streamOffset] stream[i + streamOffset + 1], streamOffset + 2
-                    elif isSigned s then
-                        // TODO: how to sign extend correctly?
-                        int (sbyte (stream[i + streamOffset])), streamOffset + 1
-                    else 
-                        int (stream[i + streamOffset]), streamOffset  + 1
+                    if not signExtend && isWord then
+                        read16bits stream[i + streamOffset] stream[i + streamOffset + 1] signExtend, streamOffset + 2
+                    else
+                        read8bits (stream[i + streamOffset]) signExtend, streamOffset + 1
 
                 instructions.Add(Instruction.AddImmediateToRegisterMemory(destination, data, isWord))
                 i <- i + streamOffset
-            | opcode when (opcode >>> 2) = SUB_IMMEDIATE_TO_REGISTER_MEMORY && (get3thto5thBits stream[i+1] = 0b101uy) ->
+            | opcode when (opcode >>> 2) = SUB_IMMEDIATE_TO_REGISTER_MEMORY && (get3thTo5thBits stream[i+1] = 0b101uy) ->
                 
                 let s = get7thBit stream[i]
                 let w = get8thBit stream[i]
                 let isWord = isWord w
+                let signExtend = signExtend s
                 let ``mod`` = getFirst2Bits stream[i+1]
-                let _opcodeExtention = get3thto5thBits stream[i+1]
+                let _opcodeExtension = get3thTo5thBits stream[i+1]
                 let rm = getLast3Bits stream[i+1]
 
                 let memoryMode = parseMemoryMode ``mod`` rm
@@ -541,30 +556,28 @@ module Decoding8086 =
                 let destination, streamOffset = 
                     match memoryMode with
                     | Mode.Memory0 -> Formula (Registers.effectiveAddress rm, 0), streamOffset
-                    | Mode.Memory0D16 -> DirectAddress (read16bits (stream[i + streamOffset]) (stream[i + streamOffset + 1])), streamOffset + 2
-                    | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, int stream[i + streamOffset]), streamOffset + 1
-                    | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[i + streamOffset] stream[i + streamOffset + 1]), streamOffset + 2
+                    | Mode.Memory0D16 -> DirectAddress (read16bits (stream[i + streamOffset]) (stream[i + streamOffset + 1]) signExtend), streamOffset + 2
+                    | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, read8bits stream[i + streamOffset] signExtend), streamOffset + 1
+                    | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[i + streamOffset] stream[i + streamOffset + 1] signExtend), streamOffset + 2
                     | Mode.Register -> Register (Registers.fromId rm w), streamOffset
                 
                 let data, streamOffset = 
-                    if not (isSigned s) && isWord then
-                        read16bits stream[i + streamOffset] stream[i + streamOffset + 1], streamOffset + 2
-                    elif isSigned s then
-                        // TODO: how to sign extend correctly?
-                        int (sbyte (stream[i + streamOffset])), streamOffset + 1
-                    else 
-                        int (stream[i + streamOffset]), streamOffset  + 1
+                    if not signExtend && isWord then
+                        read16bits stream[i + streamOffset] stream[i + streamOffset + 1] signExtend, streamOffset + 2
+                    else
+                        read8bits stream[i + streamOffset] signExtend, streamOffset + 1
 
                 instructions.Add(Instruction.SubImmediateToRegisterMemory(destination, data, isWord))
                 i <- i + streamOffset
 
-            | opcode when (opcode >>> 2) = CMP_IMMEDIATE_TO_REGISTER_MEMORY && (get3thto5thBits stream[i+1] = 0b111uy) ->
+            | opcode when (opcode >>> 2) = CMP_IMMEDIATE_TO_REGISTER_MEMORY && (get3thTo5thBits stream[i+1] = 0b111uy) ->
                 
                 let s = get7thBit stream[i]
                 let w = get8thBit stream[i]
                 let isWord = isWord w
+                let signExtend = signExtend s
                 let ``mod`` = getFirst2Bits stream[i+1]
-                let _opcodeExtention = get3thto5thBits stream[i+1]
+                let _opcodeExtension = get3thTo5thBits stream[i+1]
                 let rm = getLast3Bits stream[i+1]
 
                 let memoryMode = parseMemoryMode ``mod`` rm
@@ -574,19 +587,16 @@ module Decoding8086 =
                 let destination, streamOffset = 
                     match memoryMode with
                     | Mode.Memory0 -> Formula (Registers.effectiveAddress rm, 0), streamOffset
-                    | Mode.Memory0D16 -> DirectAddress (read16bits (stream[i + streamOffset]) (stream[i + streamOffset + 1])), streamOffset + 2
-                    | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, int stream[i + streamOffset]), streamOffset + 1
-                    | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[i + streamOffset] stream[i + streamOffset + 1]), streamOffset + 2
+                    | Mode.Memory0D16 -> DirectAddress (read16bits (stream[i + streamOffset]) (stream[i + streamOffset + 1]) signExtend), streamOffset + 2
+                    | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, read8bits stream[i + streamOffset] signExtend), streamOffset + 1
+                    | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[i + streamOffset] stream[i + streamOffset + 1] signExtend), streamOffset + 2
                     | Mode.Register -> Register (Registers.fromId rm w), streamOffset
                 
                 let data, streamOffset = 
-                    if not (isSigned s) && isWord then
-                        read16bits stream[i + streamOffset] stream[i + streamOffset + 1], streamOffset + 2
-                    elif isSigned s then
-                        // TODO: how to sign extend correctly?
-                        int (sbyte (stream[i + streamOffset])), streamOffset + 1
-                    else 
-                        int (stream[i + streamOffset]), streamOffset  + 1
+                    if not signExtend && isWord then
+                        read16bits stream[i + streamOffset] stream[i + streamOffset + 1] signExtend, streamOffset + 2
+                    else
+                        read8bits stream[i + streamOffset] signExtend, streamOffset + 1
 
                 instructions.Add(Instruction.CmpImmediateToRegisterMemory(destination, data, isWord))
                 i <- i + streamOffset
@@ -596,9 +606,9 @@ module Decoding8086 =
                 let streamOffset = 1
                 let data, streamOffset =
                     if isWord then
-                        read16bits stream[i+streamOffset] stream[i+streamOffset+1], streamOffset + 2
+                        read16bits stream[i+streamOffset] stream[i+streamOffset+1] isWord, streamOffset + 2
                     else
-                        int (sbyte stream[i+streamOffset]), streamOffset + 1
+                        read8bits stream[i+streamOffset] isWord, streamOffset + 1
                      
                 if isWord then
                     instructions.Add(Instruction.AddImmediateToRegisterMemory(Register Register.AX, data, isWord))
@@ -611,9 +621,9 @@ module Decoding8086 =
                 let streamOffset = 1
                 let data, streamOffset =
                     if isWord then
-                        read16bits stream[i+streamOffset] stream[i+streamOffset+1], streamOffset + 2
+                        read16bits stream[i+streamOffset] stream[i+streamOffset+1] isWord, streamOffset + 2
                     else
-                        int (sbyte stream[i+streamOffset]), streamOffset + 1
+                        read8bits stream[i+streamOffset] isWord, streamOffset + 1
                 
                 if isWord then
                     instructions.Add(Instruction.SubImmediateToRegisterMemory(Register Register.AX, data, isWord))
@@ -626,9 +636,9 @@ module Decoding8086 =
                 let streamOffset = 1
                 let data, streamOffset =
                     if isWord then
-                        read16bits stream[i+streamOffset] stream[i+streamOffset+1], streamOffset + 2
+                        read16bits stream[i+streamOffset] stream[i+streamOffset+1] isWord, streamOffset + 2
                     else
-                        int (sbyte stream[i+streamOffset]), streamOffset + 1
+                        read8bits stream[i+streamOffset] isWord, streamOffset + 1
                 
                 if isWord then
                     instructions.Add(Instruction.CmpImmediateToRegisterMemory(Register Register.AX, data, isWord))
@@ -679,18 +689,9 @@ module Decoding8086 =
             | opcode -> failwithf $"opcode '%06B{opcode}' not yet supported."
 
         instructions
+        
     let decodeFile source destination = 
         File.ReadAllBytes(source)
         |> decode 
         |> Registers.printInstructions
         |> fun text -> File.WriteAllText(destination, text)
-
-Decoding8086.decodeFile "./listing_0037_single_register_mov" "./decoded_single_register_move.asm"
-Decoding8086.decodeFile "./listing_0038_many_register_mov" "./decoded_many_register_move.asm"
-Decoding8086.decodeFile "./listing_0039_more_movs" "./decoded_more_movs.asm"
-Decoding8086.decodeFile "./listing_0040_challenge_movs" "./decoded_challenges_movs.asm"
-Decoding8086.decodeFile "./listing_0041_add_sub_cmp_jnz" "./decoded_add_sub_cmp_jnz.asm"
-
-File.ReadAllBytes("./listing_0041_add_sub_cmp_jnz") |> PrintTools.printBinary
-
-// TODO: handle correctly signed displacements
