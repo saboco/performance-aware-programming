@@ -1,11 +1,17 @@
 ﻿open System
+open System.IO
 open sim8086
 
 [<EntryPoint>]
 let main (argv : string[]) =
-    let src = if argv.Length > 0 then argv[0] else "C:\Users\sbotero\Documents\99. [PERSO] Safe to delete\01. Training\Performance Aware Programming\Decoding\homework/listing_0040_challenge_movs"
-    let dst = if argv.Length > 1 then argv[1] else "C:\Users\sbotero\Documents\99. [PERSO] Safe to delete\01. Training\Performance Aware Programming\Decoding/output/decoded_challenge_movs.asm"
-    let asm = Decoder.Decoding8086.decodeFile src dst
-    Console.Write(asm)
+    let srcDirectory = "C:\Users\sbotero\Documents\99. [PERSO] Safe to delete\01. Training\Performance Aware Programming\Decoding\homework/"
+    let dstDirectory = "C:\Users\sbotero\Documents\99. [PERSO] Safe to delete\01. Training\Performance Aware Programming\Decoding/output/"
+    let files = Directory.EnumerateFiles(srcDirectory)
     
+    for file in files do
+        if Path.GetExtension(file) = "" && Path.GetFileName(file).Contains("39") then
+            let dst = $"decoded_{Path.GetFileName(file)}.asm" 
+            let asm = Decoder.Decoding8086.decodeFile file
+            File.WriteAllText(Path.Combine(dstDirectory, dst), asm)
+            Console.Write(asm)
     0

@@ -18,6 +18,5 @@ module PrintTools =
         
         printfn ""
 
-
-System.IO.File.ReadAllBytes("./homewok/listing_0040_challenge_movs")
+System.IO.File.ReadAllBytes("./homework/listing_0040_challenge_movs")
 |> PrintTools.printBinary
