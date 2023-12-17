@@ -6,7 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Debug.fs" />
     <Compile Include="Decoder.fs" />
+    <Compile Include="Computer.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
