@@ -313,7 +313,12 @@ let parseMemoryMode ``mod`` rm =
     else
         Mode.Memory0
         
-let baseCase (stream : byte[]) at d w ``mod`` reg rm =
+let baseCase (stream : byte[]) at =
+    let d = get7thBit stream[at]
+    let w = get8thBit stream[at]
+    let ``mod`` = getFirst2Bits stream[at+1]
+    let reg = get3thTo5thBits stream[at+1]
+    let rm = getLast3Bits stream[at+1]
     let memoryMode = parseMemoryMode ``mod`` rm
     let isWord = isWord w
     let streamOffset = 2
@@ -379,7 +384,51 @@ let baseCase (stream : byte[]) at d w ``mod`` reg rm =
             source, destination, streamOffset
     
     source, destination, streamOffset
+    
+let immediateCase (stream: byte[]) at =
+    let s = get7thBit stream[at]
+    let w = get8thBit stream[at]
+    let isWord = isWord w
+    let signExtend = signExtend s
+    let ``mod`` = getFirst2Bits stream[at+1]
+    let _opcodeExtension = get3thTo5thBits stream[at+1]
+    let rm = getLast3Bits stream[at+1]
 
+    let memoryMode = parseMemoryMode ``mod`` rm
+    let streamOffset = 2
+    
+    let destination, streamOffset = 
+        match memoryMode with
+        | Mode.Memory0 -> Formula (Registers.effectiveAddress rm, 0, isWord), streamOffset
+        | Mode.Memory0D16 -> DirectAddress (read16bits (stream[at + streamOffset]) (stream[at + streamOffset + 1]) isWord, isWord), streamOffset + 2
+        | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, read8bits stream[at + streamOffset] signExtend, isWord), streamOffset + 1
+        | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[at + streamOffset] stream[at + streamOffset + 1] isWord, isWord), streamOffset + 2
+        | Mode.Register -> Register (Registers.fromId rm w), streamOffset
+    
+    let data, streamOffset = 
+        if not signExtend && isWord then
+            read16bits stream[at + streamOffset] stream[at + streamOffset + 1] signExtend, streamOffset + 2
+        else
+            read8bits stream[at + streamOffset] signExtend, streamOffset + 1
+    
+    destination, data, streamOffset
+let accumulatorCase (stream : byte[]) at instructionConstructor =
+    let isWord = isWord (get8thBit stream[at])
+    let streamOffset = 1
+    let data, streamOffset =
+        if isWord then
+            read16bits stream[at+streamOffset] stream[at+streamOffset+1] isWord, streamOffset + 2
+        else
+            read8bits stream[at+streamOffset] (not isWord), streamOffset + 1
+    
+    let instruction =
+        if isWord then
+            instructionConstructor(Register Register.AX, data)
+        else
+            instructionConstructor(Register Register.AL, data)
+    
+    instruction, streamOffset
+    
 let jumpSwitch (stream : byte[]) at op opNegated : Instruction =
     let n = get8thBit stream[at]
     let jump = read8bits stream[at + 1] false
@@ -395,20 +444,22 @@ let decode (stream : byte[]) =
     while at < stream.Length - 1 do
         Debug.PrintTools.printByteWithPrefix $"[{at}]" stream[at]
         printfn ""
-        // treating all cases individually to be able to see patterns
+        
         match stream[at] with
-        | opcode when (opcode >>> 2) = MOV ->
-            let d = get7thBit stream[at]
-            let w = get8thBit stream[at]
-            let ``mod`` = getFirst2Bits stream[at+1]
-            let reg = get3thTo5thBits stream[at+1]
-            let rm = getLast3Bits stream[at+1]
+        | opcode when (opcode >>> 4) = MOV_IMMEDIATE_TO_REGISTER ->
+            let w = get5thBit stream[at]
+            let isWord = isWord w
+            let reg = getLast3Bits stream[at]
 
-            let source, destination, streamOffset = baseCase stream at d w ``mod`` reg rm
+            let streamOffset = 1
+            let data, streamOffset =
+                if isWord then
+                    read16bits stream[at + streamOffset] stream[at + streamOffset + 1] isWord, streamOffset + 2
+                else
+                    read8bits stream[at + streamOffset] (not isWord), streamOffset + 1
 
-            instructions.Add(Instruction.Mov (destination,source))
+            instructions.Add(Instruction.MovImmediateRegisterMemory(Register (Registers.fromId reg w), data))
             at <- at + streamOffset
-
         | opcode when (opcode >>> 1) = MOVE_IMMEDIATE_TO_REGISTER_MEMORY ->
             let w = get8thBit stream[at]
             let isWord = isWord w
@@ -437,21 +488,6 @@ let decode (stream : byte[]) =
             instructions.Add(Instruction.MovImmediateRegisterMemory (destination, data))
 
             at <- at + streamOffset
-        | opcode when (opcode >>> 4) = MOV_IMMEDIATE_TO_REGISTER ->
-            let w = get5thBit stream[at]
-            let isWord = isWord w
-            let reg = getLast3Bits stream[at]
-
-            let streamOffset = 1
-            let data, streamOffset =
-                if isWord then
-                    read16bits stream[at + streamOffset] stream[at + streamOffset + 1] isWord, streamOffset + 2
-                else
-                    read8bits stream[at + streamOffset] (not isWord), streamOffset + 1
-
-            instructions.Add(Instruction.MovImmediateRegisterMemory(Register (Registers.fromId reg w), data))
-            at <- at + streamOffset
-
         | opcode when (opcode >>> 2) = MOVE_TO_FROM_ACCUMULATOR ->
             let toMemory = (get7thBit stream[at]) = 0b1uy
             let w = get8thBit stream[at]
@@ -508,171 +544,46 @@ let decode (stream : byte[]) =
                 instructions.Add(Instruction.Mov(Register segmentRegister, address))
                 
             at <- at + streamOffset
+        | opcode when (opcode >>> 2) = MOV ->
+            let source, destination, streamOffset = baseCase stream at
+            instructions.Add(Instruction.Mov (destination,source))
+            at <- at + streamOffset
         | opcode when (opcode >>> 2) = ADD ->
-            let d = get7thBit stream[at]
-            let w = get8thBit stream[at]
-            let ``mod`` = getFirst2Bits stream[at+1]
-            let reg = get3thTo5thBits stream[at+1]
-            let rm = getLast3Bits stream[at+1]
-
-            let source, destination, streamOffset = baseCase stream at d w ``mod`` reg rm
-            
+            let source, destination, streamOffset = baseCase stream at            
             instructions.Add(Instruction.Add (destination,source))
             at <- at + streamOffset
         | opcode when (opcode >>> 2) = SUB ->
-            let d = get7thBit stream[at]
-            let w = get8thBit stream[at]
-            let ``mod`` = getFirst2Bits stream[at+1]
-            let reg = get3thTo5thBits stream[at+1]
-            let rm = getLast3Bits stream[at+1]
-
-            let source, destination, streamOffset = baseCase stream at d w ``mod`` reg rm
-            
+            let source, destination, streamOffset = baseCase stream at            
             instructions.Add(Instruction.Sub (destination,source))
             at <- at + streamOffset
         | opcode when (opcode >>> 2) = CMP ->
-            let d = get7thBit stream[at]
-            let w = get8thBit stream[at]
-            let ``mod`` = getFirst2Bits stream[at+1]
-            let reg = get3thTo5thBits stream[at+1]
-            let rm = getLast3Bits stream[at+1]
-
-            let source, destination, streamOffset = baseCase stream at d w ``mod`` reg rm
-            
+            let source, destination, streamOffset = baseCase stream at            
             instructions.Add(Instruction.Cmp (destination,source))
             at <- at + streamOffset
+        
         | opcode when (opcode >>> 2) = ADD_IMMEDIATE_TO_REGISTER_MEMORY && (get3thTo5thBits stream[at+1] = 0b000uy) ->
-            let s = get7thBit stream[at]
-            let w = get8thBit stream[at]
-            let isWord = isWord w
-            let signExtend = signExtend s
-            let ``mod`` = getFirst2Bits stream[at+1]
-            let _opcodeExtension = get3thTo5thBits stream[at+1]
-            let rm = getLast3Bits stream[at+1]
-
-            let memoryMode = parseMemoryMode ``mod`` rm
-            let streamOffset = 2
-            
-            let destination, streamOffset = 
-                match memoryMode with
-                | Mode.Memory0 -> Formula (Registers.effectiveAddress rm, 0, isWord), streamOffset
-                | Mode.Memory0D16 -> DirectAddress (read16bits stream[at + streamOffset] stream[at + streamOffset + 1] isWord, isWord), streamOffset + 2
-                | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, read8bits stream[at + streamOffset] isWord, isWord), streamOffset + 1
-                | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[at + streamOffset] stream[at + streamOffset + 1] isWord, isWord), streamOffset + 2
-                | Mode.Register -> Register (Registers.fromId rm w), streamOffset
-            
-            let data, streamOffset = 
-                if not signExtend && isWord then
-                    read16bits stream[at + streamOffset] stream[at + streamOffset + 1] signExtend, streamOffset + 2
-                else
-                    read8bits (stream[at + streamOffset]) signExtend, streamOffset + 1
-
+            let destination, data, streamOffset = immediateCase stream at
             instructions.Add(Instruction.AddImmediateToRegisterMemory(destination, data))
             at <- at + streamOffset
         | opcode when (opcode >>> 2) = SUB_IMMEDIATE_TO_REGISTER_MEMORY && (get3thTo5thBits stream[at+1] = 0b101uy) ->
-            
-            let s = get7thBit stream[at]
-            let w = get8thBit stream[at]
-            let isWord = isWord w
-            let signExtend = signExtend s
-            let ``mod`` = getFirst2Bits stream[at+1]
-            let _opcodeExtension = get3thTo5thBits stream[at+1]
-            let rm = getLast3Bits stream[at+1]
-
-            let memoryMode = parseMemoryMode ``mod`` rm
-            let streamOffset = 2
-            
-            let destination, streamOffset = 
-                match memoryMode with
-                | Mode.Memory0 -> Formula (Registers.effectiveAddress rm, 0, isWord), streamOffset
-                | Mode.Memory0D16 -> DirectAddress (read16bits (stream[at + streamOffset]) (stream[at + streamOffset + 1]) isWord, isWord), streamOffset + 2
-                | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, read8bits stream[at + streamOffset] signExtend, isWord), streamOffset + 1
-                | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[at + streamOffset] stream[at + streamOffset + 1] isWord, isWord), streamOffset + 2
-                | Mode.Register -> Register (Registers.fromId rm w), streamOffset
-            
-            let data, streamOffset = 
-                if not signExtend && isWord then
-                    read16bits stream[at + streamOffset] stream[at + streamOffset + 1] signExtend, streamOffset + 2
-                else
-                    read8bits stream[at + streamOffset] signExtend, streamOffset + 1
-
+            let destination, data, streamOffset = immediateCase stream at
             instructions.Add(Instruction.SubImmediateToRegisterMemory(destination, data))
             at <- at + streamOffset
-
         | opcode when (opcode >>> 2) = CMP_IMMEDIATE_TO_REGISTER_MEMORY && (get3thTo5thBits stream[at+1] = 0b111uy) ->
-            
-            let s = get7thBit stream[at]
-            let w = get8thBit stream[at]
-            let isWord = isWord w
-            let signExtend = signExtend s
-            let ``mod`` = getFirst2Bits stream[at+1]
-            let _opcodeExtension = get3thTo5thBits stream[at+1]
-            let rm = getLast3Bits stream[at+1]
-
-            let memoryMode = parseMemoryMode ``mod`` rm
-            let streamOffset = 2
-            
-            let destination, streamOffset = 
-                match memoryMode with
-                | Mode.Memory0 -> Formula (Registers.effectiveAddress rm, 0, isWord), streamOffset
-                | Mode.Memory0D16 -> DirectAddress (read16bits (stream[at + streamOffset]) (stream[at + streamOffset + 1]) isWord, isWord), streamOffset + 2
-                | Mode.MemoryD8 -> Formula (Registers.effectiveAddress rm, read8bits stream[at + streamOffset] signExtend, isWord), streamOffset + 1
-                | Mode.MemoryD16 -> Formula (Registers.effectiveAddress rm, read16bits stream[at + streamOffset] stream[at + streamOffset + 1] isWord, isWord), streamOffset + 2
-                | Mode.Register -> Register (Registers.fromId rm w), streamOffset
-            
-            let data, streamOffset = 
-                if not signExtend && isWord then
-                    read16bits stream[at + streamOffset] stream[at + streamOffset + 1] signExtend, streamOffset + 2
-                else
-                    read8bits stream[at + streamOffset] signExtend, streamOffset + 1
-
+            let destination, data, streamOffset = immediateCase stream at
             instructions.Add(Instruction.CmpImmediateToRegisterMemory(destination, data))
             at <- at + streamOffset
-
         | opcode when (opcode >>> 1) = ADD_IMMEDIATE_TO_ACCUMULATOR ->
-            let isWord = isWord (get8thBit stream[at])
-            let streamOffset = 1
-            let data, streamOffset =
-                if isWord then
-                    read16bits stream[at+streamOffset] stream[at+streamOffset+1] isWord, streamOffset + 2
-                else
-                    read8bits stream[at+streamOffset] (not isWord), streamOffset + 1
-                 
-            if isWord then
-                instructions.Add(Instruction.AddImmediateToRegisterMemory(Register Register.AX, data))
-            else
-                instructions.Add(Instruction.AddImmediateToRegisterMemory(Register Register.AL, data))
-
+            let instruction, streamOffset = accumulatorCase stream at Instruction.AddImmediateToRegisterMemory
+            instructions.Add(instruction)
             at <- at + streamOffset
         | opcode when (opcode >>> 1) = SUB_IMMEDIATE_TO_ACCUMULATOR ->
-            let isWord = isWord (get8thBit stream[at])
-            let streamOffset = 1
-            let data, streamOffset =
-                if isWord then
-                    read16bits stream[at+streamOffset] stream[at+streamOffset+1] isWord, streamOffset + 2
-                else
-                    read8bits stream[at+streamOffset] (not isWord), streamOffset + 1
-            
-            if isWord then
-                instructions.Add(Instruction.SubImmediateToRegisterMemory(Register Register.AX, data))
-            else
-                instructions.Add(Instruction.SubImmediateToRegisterMemory(Register Register.AL, data))
-
+            let instruction, streamOffset = accumulatorCase stream at Instruction.SubImmediateToRegisterMemory
+            instructions.Add(instruction)
             at <- at + streamOffset
         | opcode when (opcode >>> 1) = CMP_IMMEDIATE_TO_ACCUMULATOR ->
-            let isWord = isWord (get8thBit stream[at])
-            let streamOffset = 1
-            let data, streamOffset =
-                if isWord then
-                    read16bits stream[at+streamOffset] stream[at+streamOffset+1] isWord, streamOffset + 2
-                else
-                    read8bits stream[at+streamOffset] (not isWord), streamOffset + 1
-            
-            if isWord then
-                instructions.Add(Instruction.CmpImmediateToRegisterMemory(Register Register.AX, data))
-            else
-                instructions.Add(Instruction.CmpImmediateToRegisterMemory(Register Register.AL, data))
-
+            let instruction, streamOffset = accumulatorCase stream at Instruction.CmpImmediateToRegisterMemory
+            instructions.Add(instruction)            
             at <- at + streamOffset
         | opcode when (opcode >>> 1) = JMP_EQUAL_ZERO_OR_NEGATION ->
             let jump = jumpSwitch stream at Instruction.Jz Instruction.Jnz
