@@ -3,17 +3,6 @@ open System.IO
 open sim8086
 open Decoder
 
-let program stream at = seq {
-    for instruction, at in Decoder.decode stream at do
-        let oldRegisters = Array.copy Computer.registers
-        let oldFlags = Computer.flags[0]
-        yield! Computer.executeInstruction instruction at
-        printf $"{Registers.sprintInstruction instruction};\t"
-        Computer.printRegisters oldRegisters Computer.registers
-        printf ";\t"
-        Computer.Flags.printFlags oldFlags Computer.flags[0]
-        printfn ""
-}
 
 let testDecoding () =
     let srcDirectory = "C:\Users\sbotero\Documents\99. [PERSO] Safe to delete\01. Training\Performance Aware Programming\Decoding\input/decoding"
@@ -35,11 +24,25 @@ let testComputer () =
     for file in files do
         let fileName = Path.GetFileName(file)
         let mutable at = 0
-        if Path.GetExtension(file) = "" then
+        printfn $"%s{fileName}"
+        if Path.GetExtension(file) = "" && fileName.Contains("50") then
             let stream = File.ReadAllBytes file
+            Computer.registers <- Array.zeroCreate Computer.registers.Length
+            Computer.flags <- [|0us|]
+            Computer.memory <- Array.zeroCreate Computer.memory.Length
+            let initialRegisters = Array.copy Computer.registers
+            let initialFlags = Computer.flags[0]
+            
             while at < stream.Length do
-                for i in program stream at do
+                for i in Computer.executeProgram stream at do
                     at <- i
+                    
+            printfn ""
+            printfn "Final registers:"
+            Computer.printRegistersN initialRegisters Computer.registers
+            printfn ""            
+            Computer.Flags.printFlags initialFlags Computer.flags[0]
+            printfn ""
 
 [<EntryPoint>]
 let main (argv : string[]) =

@@ -429,14 +429,14 @@ let accumulatorCase (stream : byte[]) at instructionConstructor =
     
     instruction, streamOffset
     
-let jumpSwitch (stream : byte[]) at op opNegated : Instruction =
+let jumpSwitch (stream : byte[]) at op opNegated : Instruction * int =
     let n = get8thBit stream[at]
-    let jump = read8bits stream[at + 1] false
-    
+    let jump = read8bits stream[at + 1] true
+    let streamOffset = 2
     if n = 0b0uy then
-        op jump
+        op jump, streamOffset
     else
-        opNegated jump
+        opNegated jump, streamOffset
 
 let decodeInstruction (stream : byte[]) at =
     match stream[at] with
@@ -565,35 +565,25 @@ let decodeInstruction (stream : byte[]) at =
         let instruction, streamOffset = accumulatorCase stream at Instruction.CmpImmediateToRegisterMemory
         instruction, streamOffset
     | opcode when (opcode >>> 1) = JMP_EQUAL_ZERO_OR_NEGATION ->
-        let jump = jumpSwitch stream at Instruction.Jz Instruction.Jnz
-        jump, 2
+        jumpSwitch stream at Instruction.Jz Instruction.Jnz
     | opcode when (opcode >>> 1) = JPM_ON_LESS_OR_NEGATION ->
-        let jump = jumpSwitch stream at Instruction.Jl Instruction.Jnl
-        jump, 2
+        jumpSwitch stream at Instruction.Jl Instruction.Jnl
     | opcode when (opcode >>> 1) = JPM_ON_LESS_OR_EQUAL_OR_NEGATION ->
-        let jump = jumpSwitch stream at Instruction.Jle Instruction.Jnle
-        jump, 2
+        jumpSwitch stream at Instruction.Jle Instruction.Jnle
     | opcode when (opcode >>> 1) = JMP_ON_BELOW_OR_NEGATION ->
-        let jump = jumpSwitch stream at Instruction.Jb Instruction.Jnb
-        jump, 2
+        jumpSwitch stream at Instruction.Jb Instruction.Jnb
     | opcode when (opcode >>> 1) = JMP_ON_BELOW_OR_EQUAL_OR_NEGATION ->
-        let jump = jumpSwitch stream at Instruction.Jbe Instruction.Jnbe
-        jump, 2
+        jumpSwitch stream at Instruction.Jbe Instruction.Jnbe
     | opcode when (opcode >>> 1) = JMP_ON_PARITY_OR_NEGATION ->
-        let jump = jumpSwitch stream at Instruction.Jp Instruction.Jnp
-        jump, 2
+        jumpSwitch stream at Instruction.Jp Instruction.Jnp
     | opcode when (opcode >>> 1) = JMP_ON_OVERFLOW_OR_NEGATION ->
-        let jump = jumpSwitch stream at Instruction.Jo Instruction.Jno
-        jump, 2
+        jumpSwitch stream at Instruction.Jo Instruction.Jno
     | opcode when (opcode >>> 1) = JMP_ON_SIGN_OR_NEGATION ->
-        let jump = jumpSwitch stream at Instruction.Js Instruction.Jns
-        jump, 2
+        jumpSwitch stream at Instruction.Js Instruction.Jns
     | opcode when (opcode >>> 1) = LOOP_CX_TIMES_OR_ON_CX_ZERO ->
-        let jump = jumpSwitch stream at Instruction.Loop Instruction.Jcxz
-        jump, 2
+        jumpSwitch stream at Instruction.Loop Instruction.Jcxz
     | opcode when (opcode >>> 1) = LOOP_WHILE_ZERO_OR_NEGATION ->
-        let jump = jumpSwitch stream at Instruction.Loopnz Instruction.Loopz
-        jump, 2
+        jumpSwitch stream at Instruction.Loopnz Instruction.Loopz
     | opcode -> failwithf $"opcode '%06B{opcode}' not yet supported."
     
 let decode (stream : byte[]) at = seq {

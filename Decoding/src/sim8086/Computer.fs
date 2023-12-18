@@ -2,6 +2,7 @@
 
 open System.Data.Common
 open Decoder
+open sim8086.Decoder
 
 let printRegister (before : byte[]) (after : byte[]) r =
     let register, dataBefore, dataAfter =
@@ -91,8 +92,8 @@ let printRegister (before : byte[]) (after : byte[]) r =
             let dataAfter = read16bits after[24] after[25] true|> uint16
             "ip", dataBefore, dataAfter
             
-    if dataBefore <> dataAfter then
-        printf $"{register}=0x%04x{dataBefore}->0x%04x{dataAfter}"
+    dataBefore, dataAfter
+        
     
 let listOfRegisters = [|
     Register.AX
@@ -112,11 +113,19 @@ let listOfRegisters = [|
 
 let printRegisters before after =
     for register in listOfRegisters do
-        printRegister before after register
+        let dataBefore, dataAfter = printRegister before after register
+        if dataBefore <> dataAfter then
+            printf $"{register}=0x%04x{dataBefore}->0x%04x{dataAfter};"
+            
+let printRegistersN before after =
+    for register in listOfRegisters do
+        let dataBefore, dataAfter = printRegister before after register
+        if dataBefore <> dataAfter then
+            printfn $"{register}=0x%04x{dataBefore}->0x%04x{dataAfter} (%i{dataAfter})"
  
-let memory = Array.zeroCreate<byte> 1_048_576
-let registers = Array.zeroCreate<byte> 26
-let flags = [|0us|]
+let mutable memory = Array.zeroCreate<byte> 1_048_576
+let mutable registers = Array.zeroCreate<byte> 26
+let mutable flags = [|0us|]
 
 [<RequireQualifiedAccess>]
 module Flags =
@@ -169,6 +178,10 @@ module Flags =
             if isBitSet flag after then
                 printf $"%s{sprintFlag flag}"
     
+    let isSet flag = isBitSet flag flags[0]
+    let isZero () = isSet ZF
+    let isNegative () = isSet SF
+    let isParity () = isSet PF
     let setFlag flag = flags[0] <- flags[0] ||| (1us <<< flag)
     let unsetFlag flag = flags[0] <- flags[0] &&& ~~~(1us <<< flag)
     let isHighBitSet (data : uint16) = isBitSet 15 data
@@ -285,6 +298,19 @@ let write (at : Address) data =
         let idx = memoryAddress registers offset
         writeMemory isWord idx data
 
+let updateIpRegister at =
+    writeRegister Register.IP at
+    
+let incrementIpRegister inc =
+    let v = readRegister Register.IP
+    writeRegister Register.IP (v + inc)
+    
+let decrementCx () =
+    let cx = readRegister Register.CX
+    let result = (cx - 1)
+    Flags.setFlags result
+    writeRegister Register.CX result
+
 let executeInstruction (instruction : Instruction) at = seq {
     let at = 
         match instruction with
@@ -292,63 +318,172 @@ let executeInstruction (instruction : Instruction) at = seq {
             read src |> write dst
             at
         | Instruction.Add (dst, src) ->
-            let a = read src
-            let b = read dst
-            let result = a + b
+            let right = read src
+            let left = read dst
+            let result = right + left
             Flags.setFlags result
             write dst result
             at
         | Instruction.Sub (dst, src) ->
-            let a = read src
-            let b = read dst
-            let result = a - b
+            let right = read src
+            let left = read dst
+            let result = left - right
             Flags.setFlags result
             write dst result
             at
         | Instruction.Cmp (dst, src) ->
-            let a = read src 
-            let b = read dst
-            Flags.setFlags (a - b)
+            let right = read src 
+            let left = read dst
+            Flags.setFlags (left - right)
             at
         | Instruction.MovImmediateRegisterMemory (dst, data) ->
             write dst data
             at
         | Instruction.AddImmediateToRegisterMemory (dst, data) ->
-            let b = read dst
-            let result = b + data
+            let left = read dst
+            let result = left + data
             Flags.setFlags result
             write dst result
             at
         | Instruction.SubImmediateToRegisterMemory (dst, data) ->
-            let b = read dst
-            let result = b - data
+            let left = read dst
+            let result = left - data
             Flags.setFlags result
             write dst result
             at
         | Instruction.CmpImmediateToRegisterMemory (dst, data) ->
-            let b = read dst
-            Flags.setFlags (b - data)
+            let left = read dst
+            Flags.setFlags (left - data)
             at
-        | Instruction.Jz v -> failwithf "not implemented"
-        | Instruction.Jnz v -> failwithf "not implemented"
-        | Instruction.Jl v -> failwithf "not implemented"
-        | Instruction.Jnl v -> failwithf "not implemented"
-        | Instruction.Jle v -> failwithf "not implemented"
-        | Instruction.Jnle v -> failwithf "not implemented"
-        | Instruction.Jb v -> failwithf "not implemented"
-        | Instruction.Jnb v -> failwithf "not implemented"
-        | Instruction.Jbe v -> failwithf "not implemented"
-        | Instruction.Jnbe v -> failwithf "not implemented"
-        | Instruction.Jp v -> failwithf "not implemented"
-        | Instruction.Jnp v -> failwithf "not implemented"
-        | Instruction.Jo v -> failwithf "not implemented"
-        | Instruction.Jno v -> failwithf "not implemented"
-        | Instruction.Js v -> failwithf "not implemented"
-        | Instruction.Jns v -> failwithf "not implemented"
-        | Instruction.Loop v -> failwithf "not implemented"
-        | Instruction.Loopz v -> failwithf "not implemented"
-        | Instruction.Loopnz v -> failwithf "not implemented"
-        | Instruction.Jcxz v -> failwithf "not implemented"
+        | Instruction.Jz jump ->
+            if Flags.isZero () then
+                incrementIpRegister jump
+                at + jump
+            else
+                at
+        | Instruction.Jnz jump ->
+            if Flags.isZero() then
+                at
+            else
+                incrementIpRegister jump
+                at + jump
+        | Instruction.Jl jump ->
+            if Flags.isNegative() then
+                incrementIpRegister jump
+                at + jump
+            else
+                at
+        | Instruction.Jnl jump ->
+            if Flags.isNegative() then
+                at
+            else
+                incrementIpRegister jump
+                at + jump
+        | Instruction.Jle jump ->
+            if Flags.isZero() || Flags.isNegative() then
+                incrementIpRegister jump
+                at + jump
+            else
+                at
+        | Instruction.Jnle jump ->
+            if Flags.isZero() || Flags.isNegative() then
+                at
+            else
+                incrementIpRegister jump
+                at + jump
+        | Instruction.Jb jump ->
+            if Flags.isNegative() then
+                incrementIpRegister jump
+                at + jump
+            else
+                at
+        | Instruction.Jnb jump ->
+            if Flags.isNegative() then
+                at
+            else
+                incrementIpRegister jump
+                at + jump
+        | Instruction.Jbe jump ->
+            if Flags.isZero() || Flags.isNegative() then
+                incrementIpRegister jump
+                at + jump
+            else
+                at
+        | Instruction.Jnbe jump ->
+            if Flags.isZero() || Flags.isNegative() then
+                at
+            else
+                incrementIpRegister jump
+                at + jump
+        | Instruction.Jp jump ->
+            if Flags.isParity() then
+                incrementIpRegister jump
+                at + jump
+            else
+                at
+        | Instruction.Jnp jump ->
+            if Flags.isParity () then
+                at
+            else
+                incrementIpRegister jump
+                at + jump
+        | Instruction.Jo jump ->
+            at + jump
+        | Instruction.Jno jump ->
+            at + jump
+        | Instruction.Js jump ->
+            if Flags.isNegative() then
+                incrementIpRegister jump
+                at + jump
+            else
+                at
+        | Instruction.Jns jump ->
+            if Flags.isNegative() then
+                at
+            else
+                incrementIpRegister jump
+                at + jump
+        | Instruction.Loop jump ->
+            decrementCx ()
+            if Flags.isZero() then
+                at
+            else
+                incrementIpRegister jump
+                at + jump
+        | Instruction.Loopz jump ->
+            decrementCx ()
+            if Flags.isZero() then
+                incrementIpRegister jump
+                at + jump
+            else
+                at
+        | Instruction.Loopnz jump ->
+            decrementCx ()
+            if Flags.isZero() then
+                at
+            else
+                incrementIpRegister jump
+                at + jump
+        | Instruction.Jcxz jump ->
+            decrementCx ()
+            if Flags.isZero() then
+                incrementIpRegister jump
+                at + jump
+            else
+                at
     
     yield at
+}
+
+let executeProgram stream at = seq {
+    for instruction, at in Decoder.decode stream at do
+        let oldRegisters = Array.copy registers
+        let oldFlags = flags[0]
+        updateIpRegister at
+        yield! executeInstruction instruction at
+        printf $"{Registers.sprintInstruction instruction}\t"
+        printRegisters oldRegisters registers
+        printf ";\t"
+        Flags.printFlags oldFlags flags[0]
+        printfn ""
 }
