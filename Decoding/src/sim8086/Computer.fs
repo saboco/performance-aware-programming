@@ -1,94 +1,98 @@
 ﻿module sim8086.Computer
 
+open System.Data.Common
 open Decoder
-open sim8086.Decoder
 
 let printRegister (before : byte[]) (after : byte[]) r =
-    match r with
-    | Register.AX ->
-        let dataBefore = read16bits before[0] before[1] true|> uint16
-        let dataAfter = read16bits after[0] after[1] true|> uint16
-        printfn $"ax=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.AL ->
-        let dataBefore = read8bits before[0] true|> uint16
-        let dataAfter = read8bits before[0] true|> uint16
-        printfn $"al=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.AH ->
-        let dataBefore = read8bits before[1] true|> uint16
-        let dataAfter = read8bits after[1] true|> uint16
-        printfn $"ah=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.BX ->
-        let dataBefore = read16bits before[2] before[3] true|> uint16
-        let dataAfter = read16bits after[2] after[3] true|> uint16
-        printfn $"bx=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.BL ->
-        let dataBefore = read8bits before[2] true|> uint16
-        let dataAfter = read8bits after[2] true|> uint16
-        printfn $"bl=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.BH ->
-        let dataBefore = read8bits before[3] true|> uint16
-        let dataAfter = read8bits after[3] true|> uint16
-        printfn $"bh=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.CX ->
-        let dataBefore = read16bits before[4] before[5] true|> uint16
-        let dataAfter = read16bits after[4] after[5] true|> uint16
-        printfn $"cx=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.CL -> 
-        let dataBefore = read8bits before[4] true|> uint16
-        let dataAfter = read8bits after[4] true|> uint16
-        printfn $"cl=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.CH -> 
-        let dataBefore = read8bits before[5] true|> uint16
-        let dataAfter = read8bits after[5] true|> uint16
-        printfn $"ch=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.DX -> 
-        let dataBefore = read16bits before[6] before[7] true|> uint16
-        let dataAfter = read16bits after[6] after[7] true|> uint16
-        printfn $"dx=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.DL -> 
-        let dataBefore = read8bits before[6] true|> uint16
-        let dataAfter = read8bits after[6] true|> uint16
-        printfn $"dl=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.DH -> 
-        let dataBefore = read8bits before[7] true|> uint16
-        let dataAfter = read8bits after[7] true|> uint16
-        printfn $"dh=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.SP -> 
-        let dataBefore = read16bits before[8] before[9] true|> uint16
-        let dataAfter = read16bits after[8] after[9] true|> uint16
-        printfn $"sp=0x%04x{dataBefore}->0x%04x{dataAfter}" 
-    | Register.BP -> 
-        let dataBefore = read16bits before[10] before[11] true |> uint16
-        let dataAfter = read16bits after[10] after[11] true|> uint16
-        printfn $"bp=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.SI -> 
-        let dataBefore = read16bits before[12] before[13] true|> uint16
-        let dataAfter = read16bits after[12] after[13] true|> uint16
-        printfn $"si=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.DI -> 
-        let dataBefore = read16bits before[14] before[15] true|> uint16
-        let dataAfter = read16bits after[14] after[15] true|> uint16
-        printfn $"di=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.ES -> 
-        let dataBefore = read16bits before[16] before[17] true|> uint16
-        let dataAfter = read16bits after[16] after[17] true|> uint16
-        printfn $"es=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.CS -> 
-        let dataBefore = read16bits before[18] before[19] true |> uint16
-        let dataAfter = read16bits after[18] after[19] true |> uint16
-        printfn $"cs=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.SS -> 
-        let dataBefore = read16bits before[20] before[21] true|> uint16
-        let dataAfter = read16bits after[20] after[21] true|> uint16
-        printfn $"ss=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.DS -> 
-        let dataBefore = read16bits before[22] before[23] true|> uint16
-        let dataAfter = read16bits after[22] after[23] true|> uint16
-        printfn $"ds=0x%04x{dataBefore}->0x%04x{dataAfter}"
-    | Register.IP -> 
-        let dataBefore = read16bits before[24] before[25] true|> uint16
-        let dataAfter = read16bits after[24] after[25] true|> uint16
-        printfn $"ds=0x%04x{dataBefore}->0x%04x{dataAfter}"
+    let register, dataBefore, dataAfter =
+        match r with
+        | Register.AX ->
+            let dataBefore = read16bits before[0] before[1] true|> uint16
+            let dataAfter = read16bits after[0] after[1] true|> uint16
+            "ax", dataBefore, dataAfter
+        | Register.AL ->
+            let dataBefore = read8bits before[0] true|> uint16
+            let dataAfter = read8bits before[0] true|> uint16
+            "al", dataBefore, dataAfter
+        | Register.AH ->
+            let dataBefore = read8bits before[1] true|> uint16
+            let dataAfter = read8bits after[1] true|> uint16
+            "ah", dataBefore, dataAfter
+        | Register.BX ->
+            let dataBefore = read16bits before[2] before[3] true|> uint16
+            let dataAfter = read16bits after[2] after[3] true|> uint16
+            "bx", dataBefore, dataAfter
+        | Register.BL ->
+            let dataBefore = read8bits before[2] true|> uint16
+            let dataAfter = read8bits after[2] true|> uint16
+            "bl", dataBefore, dataAfter
+        | Register.BH ->
+            let dataBefore = read8bits before[3] true|> uint16
+            let dataAfter = read8bits after[3] true|> uint16
+            "bh", dataBefore, dataAfter
+        | Register.CX ->
+            let dataBefore = read16bits before[4] before[5] true|> uint16
+            let dataAfter = read16bits after[4] after[5] true|> uint16
+            "cx", dataBefore, dataAfter
+        | Register.CL -> 
+            let dataBefore = read8bits before[4] true|> uint16
+            let dataAfter = read8bits after[4] true|> uint16
+            "cl", dataBefore, dataAfter
+        | Register.CH -> 
+            let dataBefore = read8bits before[5] true|> uint16
+            let dataAfter = read8bits after[5] true|> uint16
+            "ch", dataBefore, dataAfter
+        | Register.DX -> 
+            let dataBefore = read16bits before[6] before[7] true|> uint16
+            let dataAfter = read16bits after[6] after[7] true|> uint16
+            "dx", dataBefore, dataAfter
+        | Register.DL -> 
+            let dataBefore = read8bits before[6] true|> uint16
+            let dataAfter = read8bits after[6] true|> uint16
+            "dl", dataBefore, dataAfter
+        | Register.DH -> 
+            let dataBefore = read8bits before[7] true|> uint16
+            let dataAfter = read8bits after[7] true|> uint16
+            "dh", dataBefore, dataAfter
+        | Register.SP -> 
+            let dataBefore = read16bits before[8] before[9] true|> uint16
+            let dataAfter = read16bits after[8] after[9] true|> uint16
+            "sp", dataBefore, dataAfter
+        | Register.BP -> 
+            let dataBefore = read16bits before[10] before[11] true |> uint16
+            let dataAfter = read16bits after[10] after[11] true|> uint16
+            "bp", dataBefore, dataAfter
+        | Register.SI -> 
+            let dataBefore = read16bits before[12] before[13] true|> uint16
+            let dataAfter = read16bits after[12] after[13] true|> uint16
+            "si", dataBefore, dataAfter
+        | Register.DI -> 
+            let dataBefore = read16bits before[14] before[15] true|> uint16
+            let dataAfter = read16bits after[14] after[15] true|> uint16
+            "di", dataBefore, dataAfter
+        | Register.ES -> 
+            let dataBefore = read16bits before[16] before[17] true|> uint16
+            let dataAfter = read16bits after[16] after[17] true|> uint16
+            "es", dataBefore, dataAfter
+        | Register.CS -> 
+            let dataBefore = read16bits before[18] before[19] true |> uint16
+            let dataAfter = read16bits after[18] after[19] true |> uint16
+            "cs", dataBefore, dataAfter
+        | Register.SS -> 
+            let dataBefore = read16bits before[20] before[21] true|> uint16
+            let dataAfter = read16bits after[20] after[21] true|> uint16
+            "ss", dataBefore, dataAfter
+        | Register.DS -> 
+            let dataBefore = read16bits before[22] before[23] true|> uint16
+            let dataAfter = read16bits after[22] after[23] true|> uint16
+            "ds", dataBefore, dataAfter
+        | Register.IP -> 
+            let dataBefore = read16bits before[24] before[25] true|> uint16
+            let dataAfter = read16bits after[24] after[25] true|> uint16
+            "ip", dataBefore, dataAfter
+            
+    if dataBefore <> dataAfter then
+        printf $"{register}=0x%04x{dataBefore}->0x%04x{dataAfter}"
     
 let listOfRegisters = [|
     Register.AX
@@ -112,7 +116,7 @@ let printRegisters before after =
  
 let memory = Array.zeroCreate<byte> 1_048_576
 let registers = Array.zeroCreate<byte> 26
-let mutable flags = 0us
+let flags = [|0us|]
 
 [<RequireQualifiedAccess>]
 module Flags =
@@ -153,16 +157,20 @@ module Flags =
         | OF -> "O"
         | f -> failwithf $"Unknown flag '{f}'"
         
-    let printFlags () =
+    let printFlags before after =
         printf "Flags: "
         for flag in listOfFlags do
-            if isBitSet flag flags then
+            if isBitSet flag before then
                 printf $"%s{sprintFlag flag}"
         
-        printfn ""
+        printf "->"
+        
+        for flag in listOfFlags do
+            if isBitSet flag after then
+                printf $"%s{sprintFlag flag}"
     
-    let setFlag flag = flags <- flags ||| (1us <<< flag)
-    let unsetFlag flag = flags <- flags &&& ~~~(1us <<< flag)
+    let setFlag flag = flags[0] <- flags[0] ||| (1us <<< flag)
+    let unsetFlag flag = flags[0] <- flags[0] &&& ~~~(1us <<< flag)
     let isHighBitSet (data : uint16) = isBitSet 15 data
     let isHigherLowerBitSet (data : uint16) = isBitSet 7 data
     let checkParity (data : uint16) =
@@ -277,46 +285,50 @@ let write (at : Address) data =
         let idx = memoryAddress registers offset
         writeMemory isWord idx data
 
-let printInstruction (instruction : Instruction) =
-    printf $"%s{Registers.sprintInstruction instruction};"
-    Flags.printFlags ()
-let executeInstructions (instructions : Instruction[]) =
-    for instruction in instructions do
-        printInstruction instruction    
-        
+let executeInstruction (instruction : Instruction) at = seq {
+    let at = 
         match instruction with
-        | Instruction.Mov (dst, src) -> read src |> write dst
+        | Instruction.Mov (dst, src) ->
+            read src |> write dst
+            at
         | Instruction.Add (dst, src) ->
             let a = read src
             let b = read dst
             let result = a + b
             Flags.setFlags result
             write dst result
+            at
         | Instruction.Sub (dst, src) ->
             let a = read src
             let b = read dst
             let result = a - b
             Flags.setFlags result
             write dst result
+            at
         | Instruction.Cmp (dst, src) ->
             let a = read src 
             let b = read dst
             Flags.setFlags (a - b)
+            at
         | Instruction.MovImmediateRegisterMemory (dst, data) ->
             write dst data
+            at
         | Instruction.AddImmediateToRegisterMemory (dst, data) ->
             let b = read dst
             let result = b + data
             Flags.setFlags result
             write dst result
+            at
         | Instruction.SubImmediateToRegisterMemory (dst, data) ->
             let b = read dst
             let result = b - data
             Flags.setFlags result
             write dst result
+            at
         | Instruction.CmpImmediateToRegisterMemory (dst, data) ->
             let b = read dst
             Flags.setFlags (b - data)
+            at
         | Instruction.Jz v -> failwithf "not implemented"
         | Instruction.Jnz v -> failwithf "not implemented"
         | Instruction.Jl v -> failwithf "not implemented"
@@ -338,4 +350,5 @@ let executeInstructions (instructions : Instruction[]) =
         | Instruction.Loopnz v -> failwithf "not implemented"
         | Instruction.Jcxz v -> failwithf "not implemented"
     
-    Flags.printFlags ()
+    yield at
+}
