@@ -25,7 +25,7 @@ let testComputer () =
         let fileName = Path.GetFileName(file)
         let mutable at = 0
         printfn $"%s{fileName}"
-        if Path.GetExtension(file) = "" && fileName.Contains("50") then
+        if Path.GetExtension(file) = "" then
             let stream = File.ReadAllBytes file
             Computer.registers <- Array.zeroCreate Computer.registers.Length
             Computer.flags <- [|0us|]
@@ -48,3 +48,5 @@ let testComputer () =
 let main (argv : string[]) =
     testComputer ()
     0
+    
+// TODO: load program to memory

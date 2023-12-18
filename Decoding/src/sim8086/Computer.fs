@@ -182,6 +182,7 @@ module Flags =
     let isZero () = isSet ZF
     let isNegative () = isSet SF
     let isParity () = isSet PF
+    let isOverflow () = isSet OF
     let setFlag flag = flags[0] <- flags[0] ||| (1us <<< flag)
     let unsetFlag flag = flags[0] <- flags[0] &&& ~~~(1us <<< flag)
     let isHighBitSet (data : uint16) = isBitSet 15 data
@@ -428,9 +429,17 @@ let executeInstruction (instruction : Instruction) at = seq {
                 incrementIpRegister jump
                 at + jump
         | Instruction.Jo jump ->
-            at + jump
+            if Flags.isOverflow () then
+                incrementIpRegister jump
+                at + jump
+            else
+                at
         | Instruction.Jno jump ->
-            at + jump
+            if Flags.isOverflow() then
+                at
+            else
+                incrementIpRegister jump
+                at + jump
         | Instruction.Js jump ->
             if Flags.isNegative() then
                 incrementIpRegister jump
