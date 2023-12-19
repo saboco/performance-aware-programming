@@ -1,8 +1,7 @@
-﻿module sim8086.Computer
+﻿[<RequireQualifiedAccess>]
+module sim8086.Computer
 
-open System.Data.Common
 open Decoder
-open sim8086.Decoder
 
 let printRegister (before : byte[]) (after : byte[]) r =
     let register, dataBefore, dataAfter =
@@ -484,15 +483,192 @@ let executeInstruction (instruction : Instruction) at = seq {
     yield at
 }
 
-let executeProgram stream at = seq {
+[<RequireQualifiedAccess>]
+module Timing =
+    
+    let(|BaseOrIndexOnly|BpPlusDiOrBxPlusSi|BpPlusSiOrBxPlusDi|) (regs : Register[]) =
+        if regs.Length = 1 then
+            BaseOrIndexOnly
+        else
+            match regs with
+            | [|Register.BP;Register.DI|] | [|Register.BX;Register.SI|] -> BpPlusDiOrBxPlusSi
+            | [|Register.BP;Register.SI|] | [|Register.BX;Register.DI|] -> BpPlusSiOrBxPlusDi
+            | f -> failwithf $"Invalid formula %A{f}"
+            
+    let effectiveAddressCalulation (src : Address) =
+        match src with
+        | Register _ -> 2 
+        | DirectAddress _ -> 6
+        | Formula (regs,displacement,isWord) ->
+            match regs, displacement with
+            | BaseOrIndexOnly, 0 -> 5
+            | BaseOrIndexOnly, _ -> 9
+            | BpPlusDiOrBxPlusSi, 0 -> 7
+            | BpPlusSiOrBxPlusDi, 0 -> 8
+            | BpPlusDiOrBxPlusSi, _ -> 11
+            | BpPlusSiOrBxPlusDi, _ -> 12
+        
+    let isWordRegister (reg : Register) =
+        match reg with
+        | Register.AL
+        | Register.AH
+        | Register.BL
+        | Register.BH
+        | Register.CL
+        | Register.CH
+        | Register.DL
+        | Register.DH -> false
+        | Register.AX  
+        | Register.CX  
+        | Register.DX  
+        | Register.BX  
+        | Register.SP  
+        | Register.BP  
+        | Register.SI  
+        | Register.DI  
+        | Register.ES  
+        | Register.CS 
+        | Register.SS  
+        | Register.DS 
+        | Register.IP -> true
+        
+    let isWordOperationWithOddAddress (addr : Address) =
+        match addr with
+        | Register reg -> false
+        | DirectAddress (addr, isWord) -> isWord && addr % 2 <> 0
+        | Formula(_, addr, isWord) -> isWord && addr % 2 <> 0 
+        
+    let fourIfWordOperationWithOddAddress (src: Address) (dst: Address) =
+        if isWordOperationWithOddAddress src || isWordOperationWithOddAddress dst then
+            4
+        else
+            0
+            
+    let fourIfIsWordOperationWithOddAddress (addr : Address) =
+        if isWordOperationWithOddAddress addr then
+            4
+        else
+            0
+    
+    let cyclesPer (instruction : Instruction) =
+        let cycles = 
+            match instruction with
+            | Instruction.Mov (dst, src) ->
+                let baseCycles = 
+                    match dst,src with
+                    | Register _, Register _ ->  2
+                    | Register Register.AX, DirectAddress _ | Register Register.AX, Formula _ -> 10
+                    | DirectAddress _, Register Register.AX  | Formula _, Register Register.AX -> 10
+                    | Register _, DirectAddress _ | Register _, Formula _ -> 8 + effectiveAddressCalulation src
+                    | DirectAddress _, Register _  | Formula _, Register _ -> 9 + effectiveAddressCalulation dst
+                    | dst, src -> failwithf $"Invalid combinations ADD {dst}, {src}"
+                    
+                baseCycles + fourIfWordOperationWithOddAddress src dst
+                
+            | Instruction.Add (dst, src) ->
+                let baseCycles = 
+                    match dst, src with
+                    | Register _, Register _ ->  3
+                    | Register _, DirectAddress _ | Register _, Formula _ -> 9 + effectiveAddressCalulation src
+                    | DirectAddress _, Register _  | Formula _, Register _ -> 16 + effectiveAddressCalulation dst
+                    | dst, src -> failwithf $"Invalid combinations ADD {dst}, {src}"
+                    
+                baseCycles + fourIfWordOperationWithOddAddress src dst
+                
+            | Instruction.Sub (dst, src) ->
+                let baseCycles = 
+                    match dst, src with
+                    | Register _, Register _ ->  3
+                    | Register _, DirectAddress _ | Register _, Formula _ -> 9 + effectiveAddressCalulation src
+                    | DirectAddress _, Register _  | Formula _, Register _ -> 16 + effectiveAddressCalulation dst
+                    | dst, src -> failwithf $"Invalid combinations ADD {dst}, {src}"
+                    
+                baseCycles + fourIfWordOperationWithOddAddress src dst
+            | Instruction.Cmp (dst, src) ->
+                let baseCycles = 
+                    match dst, src with
+                    | Register _, Register _ ->  3
+                    | Register _, DirectAddress _ | Register _, Formula _ -> 9 + effectiveAddressCalulation src
+                    | DirectAddress _, Register _  | Formula _, Register _ -> 9 + effectiveAddressCalulation dst
+                    | dst, src -> failwithf $"Invalid combinations ADD {dst}, {src}"
+                    
+                baseCycles + fourIfWordOperationWithOddAddress src dst
+            | Instruction.MovImmediateRegisterMemory (dst, _) ->
+                let baseCycles = 
+                    match dst with
+                    | Register _ -> 4
+                    | DirectAddress _ | Formula _ -> 10 + effectiveAddressCalulation dst
+                
+                baseCycles + fourIfIsWordOperationWithOddAddress dst
+            | Instruction.AddImmediateToRegisterMemory (dst, _) ->
+                let baseCycles = 
+                    match dst with
+                    | Register _ -> 4
+                    | DirectAddress _ | Formula _ -> 17 + effectiveAddressCalulation dst
+                
+                baseCycles + fourIfIsWordOperationWithOddAddress dst
+                
+            | Instruction.SubImmediateToRegisterMemory (dst, _) ->
+                let baseCycles = 
+                    match dst with
+                    | Register _ -> 4
+                    | DirectAddress _ | Formula _ -> 17 + effectiveAddressCalulation dst
+                
+                baseCycles + fourIfIsWordOperationWithOddAddress dst
+            | Instruction.CmpImmediateToRegisterMemory (dst, _) ->
+                let baseCycles = 
+                    match dst with
+                    | Register _ -> 4
+                    | DirectAddress _ | Formula _ -> 10 + effectiveAddressCalulation dst
+                
+                baseCycles + fourIfIsWordOperationWithOddAddress dst
+            | Instruction.Jz _ -> 4
+            | Instruction.Jnz _ -> 4
+            | Instruction.Jl _ -> 4
+            | Instruction.Jnl _ -> 4
+            | Instruction.Jle _ -> 4
+            | Instruction.Jnle _ -> 4
+            | Instruction.Jb _ -> 4
+            | Instruction.Jnb _ -> 4
+            | Instruction.Jbe _ -> 4
+            | Instruction.Jnbe _ -> 4
+            | Instruction.Jp _ -> 4
+            | Instruction.Jnp _ -> 4
+            | Instruction.Jo _ -> 4
+            | Instruction.Jno _ -> 4
+            | Instruction.Js _ -> 4
+            | Instruction.Jns _ -> 4
+            | Instruction.Loop _ -> 5
+            | Instruction.Loopz _ -> 6
+            | Instruction.Loopnz _ -> 6
+            | Instruction.Jcxz _ -> 6
+            
+        cycles
+
+    type Timer() =
+        let mutable operations = 0
+        let mutable cycles = 0
+        member _.Count(instruction : Instruction) =
+            let cyclesToAdd =  cyclesPer instruction
+            cycles <- cycles + cyclesToAdd
+            operations <- operations + 1
+            
+            cyclesToAdd
+            
+        member _.GetCounters () = (operations, cycles, operations/cycles)
+    
+let executeProgram (timer : Timing.Timer) stream at = seq {
     for instruction, at in Decoder.decode stream at do
         let oldRegisters = Array.copy registers
         let oldFlags = flags[0]
         updateIpRegister at
         yield! executeInstruction instruction at
+        let cycles = timer.Count(instruction)
         printf $"{Registers.sprintInstruction instruction}\t"
         printRegisters oldRegisters registers
         printf ";\t"
         Flags.printFlags oldFlags flags[0]
+        printf $";\tcycles {cycles}"
         printfn ""
+        
 }

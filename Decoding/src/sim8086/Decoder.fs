@@ -1,7 +1,6 @@
 ﻿module sim8086.Decoder
 
 open System.Text
-open System.IO
 
 [<RequireQualifiedAccess>]
 type Mode =
