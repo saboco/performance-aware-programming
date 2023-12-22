@@ -2,7 +2,6 @@
 
 open System
 open System.Text
-open System.Text.Json
 
 let toJson (coordinates : ((float*float) *(float*float))[]) =
     let sb = StringBuilder()
@@ -59,7 +58,7 @@ type JsonValue =
 type Pairs =
     | Complete of x0: float * y0: float * x1: float * y1: float
     | Partial of float
-    | List of list<float * float * float * float>
+    | List of (float * float * float * float) seq
     | NA
 
 let partialToFloat p =
@@ -69,51 +68,55 @@ let partialToFloat p =
 
 let toCoordinates (jObject : JsonValue) =
     let rec loop 
-        (fJArray : _ -> Pairs) 
-        (fJObject : float -> float -> float -> float -> Pairs)
-        (fJFloat : _ -> Pairs) 
-        (fJString : _ -> Pairs)
-        (fJNull : _ -> Pairs)
+        (fJArray: _ -> Pairs) 
+        (fJObject: float -> float -> float -> float -> Pairs)
+        (fJFloat: _ -> Pairs) 
+        (fJString: _ -> Pairs)
+        (fJNull: _ -> Pairs)
+        (state: ResizeArray<Pairs>)
         jObject =
-        let rec recurse = loop fJArray fJObject fJFloat fJString fJNull
+        let rec recurse state obj = loop fJArray fJObject fJFloat fJString fJNull state obj
         match jObject with
-        | JsonArray l -> 
-            let objects = List.map recurse l
-            fJArray objects
+        | JsonArray l ->
+            for obj in l do
+                state.Add(recurse state obj)
+            fJArray state
         | JsonObject map ->
             if map.ContainsKey("pairs") then
-                recurse map["pairs"]
+                recurse state map["pairs"]
             else
-                let x0 = recurse map["x0"] |> partialToFloat
-                let y0 = recurse map["y0"] |> partialToFloat
-                let x1 = recurse map["x1"] |> partialToFloat
-                let y1 = recurse map["y1"] |> partialToFloat
+                let x0 = recurse state map["x0"] |> partialToFloat
+                let y0 = recurse state map["y0"] |> partialToFloat
+                let x1 = recurse state map["x1"] |> partialToFloat
+                let y1 = recurse state map["y1"] |> partialToFloat
 
                 fJObject x0 y0 x1 y1
         | JsonFloat f -> fJFloat f
         | JsonString s -> fJString s 
         | JsonEnd -> fJNull ()
-    
    
     let fJObject x0 y0 x1 y1 = Complete (x0,y0,x1,y1)
-    let fJArray (l : Pairs list) = 
-        let rec loop l pairs =
-            match pairs with
-            | Complete (x0,y0,x1,y1)::rest -> (x0,y0,x1,y1)::(loop l rest)
-            | [] -> l
-            | c -> failwithf $"[Array] Unexpected case '%A{c}"
-            
-        loop [] l |> List
+    let fJArray (l : Pairs ResizeArray) = 
+        
+        let l =
+            l |> Seq.map (fun p -> 
+                match p with
+                | Complete (x0,y0,x1,y1) -> (x0,y0,x1,y1)
+                | c -> failwithf $"unexpected item for array '{c}'" )
+
+        List l
+
         
     let fJFloat f = Partial f
     let fJString _ = NA
     let fJNull () = NA
 
-    match loop fJArray fJObject fJFloat fJString fJNull jObject with
-    | List l -> l
+    let pairs = ResizeArray<_>()
+    match loop fJArray fJObject fJFloat fJString fJNull pairs jObject with
+    | List l -> Array.ofSeq l
     | c -> failwithf $"Unwrapping result Unexpected case '%A{c}'"
+
  
-// TODO: it gets stackoverflow for too large arrays
 /// very naif implementation of a json parser
 /// the way to go in the optimization is to explore combinator parsers and how it compares in performance with this implementation
 let fromJson (json:string) =
@@ -191,6 +194,7 @@ let fromJson (json:string) =
             | '[' -> 
                 let jObjects = ResizeArray<JsonValue>()
                 let at, _ = readJsonArray jObjects json (at + 1)
+                printfn $"read array {at} json"
                 at, JsonArray (List.ofSeq jObjects)
             | '{' -> readJsonObject json (at + 1)
             | '"' -> readString json (at + 1)
@@ -207,6 +211,7 @@ let fromJson (json:string) =
         else
             at, JsonEnd
 
-    let _, jObject = readJson json 0
+    let at, jObject = readJson json 0
+    printfn $"read up to {at} in the file"
     jObject
     |> toCoordinates
