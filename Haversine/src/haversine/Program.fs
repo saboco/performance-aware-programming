@@ -1,6 +1,8 @@
 ﻿module haversine.Program
 
 open System
+open System.IO
+
 open haversine
 
 module Test =
@@ -16,18 +18,33 @@ module Test =
         paris: Coordinates[]
     }
 
-[<EntryPoint>]
-let main (_: string []) =
+let generateAndSaveCoordinates test =
     let earthRadious = 6372.8
     let random = Random()
-    let (sum, coordinates) = Generator.generateCoordinates (random.Next()) 10000 earthRadious  
+    let (sum, coordinates) = Generator.generateCoordinates (random.Next()) 1_000_000 earthRadious  
     let json = Json.toJson coordinates
-    Console.WriteLine(json)
+    
+    File.WriteAllText(@"C:\Users\sbotero\Documents\99. [PERSO] Safe to delete\01. Training\Performance Aware Programming\Haversine\input\data.json", json)
     Console.WriteLine($"Expected haversine sum: {sum}")
     
-    try
-        let _ = System.Text.Json.JsonSerializer.Deserialize<Test.Pairs>(json)
-        Console.WriteLine("Generated json is VALID")
-    with _ -> Console.WriteLine("WARNING: Generated json is INVALID!")
+    if test then
+        try
+            let _ = System.Text.Json.JsonSerializer.Deserialize<Test.Pairs>(json)
+            Console.WriteLine("Generated json is VALID")
+        with _ -> Console.WriteLine("WARNING: Generated json is INVALID!")
+    
+let readInputAndDeserialize () =
+    let json = File.ReadAllText(@"C:\Users\sbotero\Documents\99. [PERSO] Safe to delete\01. Training\Performance Aware Programming\Haversine\input\data.json")
+    let coordinates = Json.fromJson json
+    printfn $"%A{coordinates}"
+    
+[<EntryPoint>]
+let main (_: string []) =
+    
+    printfn "Generating data"
+    generateAndSaveCoordinates false
+    printfn "Deserializing data"
+    readInputAndDeserialize ()
+    
     
     0
