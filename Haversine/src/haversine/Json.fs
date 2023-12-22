@@ -48,6 +48,7 @@ let toJson (coordinates : ((float*float) *(float*float))[]) =
     
     sb.ToString()
 
+/// JSON model, it does not handle all cases, ex: null is missing
 type JsonValue =
     | JsonArray of JsonValue list
     | JsonObject of Map<string, JsonValue>
@@ -66,6 +67,7 @@ let partialToFloat p =
     | Partial f -> f
     | pairs -> failwithf $"unexpected case '%A{pairs}"
 
+/// Custom conversion from JsonValue representation to 'client' representation
 let toCoordinates (jObject : JsonValue) =
     let rec loop 
         (fJArray: _ -> Pairs) 
@@ -73,28 +75,28 @@ let toCoordinates (jObject : JsonValue) =
         (fJFloat: _ -> Pairs) 
         (fJString: _ -> Pairs)
         (fJNull: _ -> Pairs)
-        (state: ResizeArray<Pairs>)
         jObject =
-        let rec recurse state obj = loop fJArray fJObject fJFloat fJString fJNull state obj
+        let rec recurse = loop fJArray fJObject fJFloat fJString fJNull
         match jObject with
         | JsonArray l ->
+            let state = ResizeArray<_>()
             for obj in l do
-                state.Add(recurse state obj)
+                state.Add(recurse obj)
             fJArray state
         | JsonObject map ->
             if map.ContainsKey("pairs") then
-                recurse state map["pairs"]
+                recurse map["pairs"]
             else
-                let x0 = recurse state map["x0"] |> partialToFloat
-                let y0 = recurse state map["y0"] |> partialToFloat
-                let x1 = recurse state map["x1"] |> partialToFloat
-                let y1 = recurse state map["y1"] |> partialToFloat
+                let x0 = recurse map["x0"] |> partialToFloat
+                let y0 = recurse map["y0"] |> partialToFloat
+                let x1 = recurse map["x1"] |> partialToFloat
+                let y1 = recurse map["y1"] |> partialToFloat
 
                 fJObject x0 y0 x1 y1
         | JsonFloat f -> fJFloat f
         | JsonString s -> fJString s 
         | JsonEnd -> fJNull ()
-   
+    
     let fJObject x0 y0 x1 y1 = Complete (x0,y0,x1,y1)
     let fJArray (l : Pairs ResizeArray) = 
         
@@ -110,12 +112,10 @@ let toCoordinates (jObject : JsonValue) =
     let fJFloat f = Partial f
     let fJString _ = NA
     let fJNull () = NA
-
-    let pairs = ResizeArray<_>()
-    match loop fJArray fJObject fJFloat fJString fJNull pairs jObject with
+    
+    match loop fJArray fJObject fJFloat fJString fJNull jObject with
     | List l -> Array.ofSeq l
     | c -> failwithf $"Unwrapping result Unexpected case '%A{c}'"
-
  
 /// very naif implementation of a json parser
 /// the way to go in the optimization is to explore combinator parsers and how it compares in performance with this implementation
