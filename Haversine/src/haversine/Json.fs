@@ -128,14 +128,8 @@ let fromJson (json:string) =
         | (true, f) -> Some f
         | _ -> None
     
-    let (|IsInteger|_|) (s:string) =
-        match Int32.TryParse(s) with
-        | (true, v) -> Some v
-        | _ -> None
-    
     let rec readJson (json : string) at : int * JsonValue =
         let readString (json : string) at =
-            // printfn $"read string at={at}"
             let mutable i = at
             while i < json.Length && json[i] <> '"' do
                 i <- i + 1
@@ -153,13 +147,11 @@ let fromJson (json:string) =
             let mutable i = at
             while i < json.Length && json[i] <> ']' do
                 let j, jObject = readJson json i
-                // printfn $"[ARR] read object {jObject}"
                 jObjects.Add(jObject)
                 i <- j
                 while i < json.Length && (json[i] = ' ' || json[i] = ',') do
                     i <- i + 1
-                    
-            // printfn $"read ARR with length '{jObjects.Count}"
+            
             i + 1, jObjects
 
         let readKey (json : string) (at : int) =
@@ -175,21 +167,17 @@ let fromJson (json:string) =
             let mutable i = at
             while i < json.Length && json[i] <> '}' do
                 let j, key = readKey json i
-                // printfn $"read key={key} starting value at={j}"
                 let j, value = readJson json j
                 
                 if value <> JsonEnd then
                     jObject <- Map.add key value jObject
-                // printfn $"read value={value} ending value at={j}"
                 i <- j
                 while i < json.Length && (json[i] = ' ' || json[i] = ',') do
                     i <- i + 1
-            // printfn $"[OBJ] final object {jObject}"
             i + 1, JsonObject jObject
 
         if at < json.Length then
             let token = json[at]
-            // printfn $"json[{at}]={token}"
             match token with
             | '[' -> 
                 let jObjects = ResizeArray<JsonValue>()
