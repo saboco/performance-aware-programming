@@ -2,7 +2,6 @@
 open System
 open Haversine
 
-// TODO: generator has a bug, it produces |numbers| greater than 180
 let generateCoordinates seed n (radius : float) =
     let rLongInt0 = Random(seed)
     let rLongFractional0 = Random(seed * 2)
@@ -28,11 +27,11 @@ let generateCoordinates seed n (radius : float) =
     let mutable sum = 0.0
     
     let coordinates = 
-        [|for _ in 0..n do
-            let (lat0, long0) = getRandomLatLon rLongInt0 rLongFractional0 rLat0
-            let (lat1, long1) = getRandomLatLon rLongInt1 rLongFractional1 rLat1
+        [|for _ in 1..n do
+            let lat0, long0 = getRandomLatLon rLongInt0 rLongFractional0 rLat0
+            let lat1, long1 = getRandomLatLon rLongInt1 rLongFractional1 rLat1
             
-            sum <- referenceHaversine long0 lat0 long1 lat1 radius
+            sum <- sum + referenceHaversine long0 lat0 long1 lat1 radius
             (long0, lat0),(long1, lat1) |]
         
-    (sum , coordinates)
+    (sum / (float coordinates.Length) , coordinates)

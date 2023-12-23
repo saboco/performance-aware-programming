@@ -17,7 +17,7 @@ let toJson (coordinates : ((float*float) *(float*float))[]) =
     let appendCoordinates coordinates (sb:StringBuilder) =
         let mutable shouldAppendSeparator = false
         
-        for ((x0,y0),(x1,y1)) in coordinates do
+        for (x0,y0),(x1,y1) in coordinates do
             if shouldAppendSeparator then
                 appendSeparator "," sb |> ignore 
             else
@@ -52,14 +52,14 @@ let toJson (coordinates : ((float*float) *(float*float))[]) =
 type JsonValue =
     | JsonArray of JsonValue list
     | JsonObject of Map<string, JsonValue>
-    | JsonFloat of float
+    | JsonNum of float
     | JsonString of string
     | JsonEnd
 
 type Pairs =
     | Complete of x0: float * y0: float * x1: float * y1: float
     | Partial of float
-    | List of (float * float * float * float) seq
+    | List of ((float * float) * (float * float)) seq
     | NA
 
 let partialToFloat p =
@@ -93,7 +93,7 @@ let toCoordinates (jObject : JsonValue) =
                 let y1 = recurse map["y1"] |> partialToFloat
 
                 fJObject x0 y0 x1 y1
-        | JsonFloat f -> fJFloat f
+        | JsonNum f -> fJFloat f
         | JsonString s -> fJString s 
         | JsonEnd -> fJNull ()
     
@@ -103,7 +103,7 @@ let toCoordinates (jObject : JsonValue) =
         let l =
             l |> Seq.map (fun p -> 
                 match p with
-                | Complete (x0,y0,x1,y1) -> (x0,y0,x1,y1)
+                | Complete (x0,y0,x1,y1) -> ((x0,y0),(x1,y1))
                 | c -> failwithf $"unexpected item for array '{c}'" )
 
         List l
@@ -125,7 +125,7 @@ let fromJson (json:string) =
 
     let (|IsFloat|_|) (s:string) =
         match Double.TryParse(s) with
-        | (true, f) -> Some f
+        | true, f -> Some f
         | _ -> None
     
     let rec readJson (json : string) at : int * JsonValue =
@@ -182,7 +182,6 @@ let fromJson (json:string) =
             | '[' -> 
                 let jObjects = ResizeArray<JsonValue>()
                 let at, _ = readJsonArray jObjects json (at + 1)
-                printfn $"read array {at} json"
                 at, JsonArray (List.ofSeq jObjects)
             | '{' -> readJsonObject json (at + 1)
             | '"' -> readString json (at + 1)
@@ -191,7 +190,7 @@ let fromJson (json:string) =
                 let at, value = readNum json at
                 let jsonNum =
                     match value with
-                    | IsFloat f -> JsonFloat f
+                    | IsFloat f -> JsonNum f
                     | num -> failwithf $"unsupported num format '{num}'"
                 at, jsonNum
             | c -> failwithf $"Unexpected token '{c}' at {at} position"

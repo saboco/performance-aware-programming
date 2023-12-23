@@ -23,3 +23,13 @@ let referenceHaversine (x0:float) (y0 : float) (x1 : float) (y1 : float) (earthR
     let c = 2.0*asin(sqrt(a))
     
     earthRadius * c
+    
+let sumHaversineDistances earthRadius (pairs : ((float*float)*(float*float))[]) =
+    let mutable sum = 0.0
+    let sumCoefficient = 1.0 / (float pairs.Length)
+    
+    for (x0,y0),(x1,y1) in pairs do
+        let dist = referenceHaversine x0 y0 x1 y1 earthRadius
+        sum <- sum + sumCoefficient * dist
+        
+    sum
