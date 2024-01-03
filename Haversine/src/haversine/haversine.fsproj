@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Diagnostics.fs" />
     <Compile Include="Haversine.fs" />
     <Compile Include="Generator.fs" />
     <Compile Include="Json.fs" />

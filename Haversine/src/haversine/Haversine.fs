@@ -1,4 +1,5 @@
 ﻿module haversine.Haversine
+open Diagnostics
 
 let square(x: float) = x * x
 
@@ -25,6 +26,7 @@ let referenceHaversine (x0:float) (y0 : float) (x1 : float) (y1 : float) (earthR
     earthRadius * c
     
 let sumHaversineDistances earthRadius (pairs : ((float*float)*(float*float))[]) =
+    use t = new Time("sumHaversineDistances")
     let mutable sum = 0.0
     let sumCoefficient = 1.0 / (float pairs.Length)
     

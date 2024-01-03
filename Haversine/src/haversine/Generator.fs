@@ -1,8 +1,10 @@
 ﻿module haversine.Generator
 open System
 open Haversine
+open Diagnostics
 
 let generateCoordinates seed n (radius : float) =
+    use _ = new Time("generateCoordinates")    
     let rLongInt0 = Random(seed)
     let rLongFractional0 = Random(seed * 2)
     let rLat0 = Random(seed * 3)

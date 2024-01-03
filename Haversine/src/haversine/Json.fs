@@ -1,9 +1,11 @@
 ﻿module haversine.Json
-
 open System
 open System.Text
+open Diagnostics
 
 let toJson (coordinates : ((float*float) *(float*float))[]) =
+    use _ = new Time("toJson")
+    
     let sb = StringBuilder()
     
     let appendPropertyWithValue key value (sb : StringBuilder) = sb.Append($"\"{key}\":{value}")
@@ -120,6 +122,8 @@ let toCoordinates (jObject : JsonValue) =
 /// very naif implementation of a json parser
 /// the way to go in the optimization is to explore combinator parsers and how it compares in performance with this implementation
 let fromJson (json:string) =
+    use _ = new Time("fromJson")
+    
     let (|IsNum|_|) (c: char) = 
         if Char.IsDigit(c) || c='-' then Some () else None
 
