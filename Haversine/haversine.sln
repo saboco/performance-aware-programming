@@ -4,8 +4,24 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{195B4ED8-1A31-4B72-AC34-BECC692A530E}"
+	ProjectSection(SolutionItems) = preProject
+		src\windows_metrics.cpp = src\windows_metrics.cpp
+		src\page_fault_probe.cpp = src\page_fault_probe.cpp
+		src\rdtsc.cpp = src\rdtsc.cpp
+		src\nop_loop.asm = src\nop_loop.asm
+		src\multi_nop.asm = src\multi_nop.asm
+	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "haversine", "src\haversine\haversine.fsproj", "{CFB200BA-55D2-4DE5-964D-77DF0AD1D7B8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".build", ".build", "{850B7EFF-5B56-4FBF-849C-0BB1ED1F9E14}"
+	ProjectSection(SolutionItems) = preProject
+		src\build_rdtsc.bat = src\build_rdtsc.bat
+		src\build_windows_metrics.bat = src\build_windows_metrics.bat
+		src\build.bat = src\build.bat
+		src\build_page_fault_probe.bat = src\build_page_fault_probe.bat
+		src\build_asm.bat = src\build_asm.bat
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

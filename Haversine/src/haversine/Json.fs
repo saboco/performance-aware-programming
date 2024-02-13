@@ -2,9 +2,10 @@
 open System
 open System.Text
 open Diagnostics
+open Timing
 
 let toJson (coordinates : ((float*float) *(float*float))[]) =
-    use _ = new Time(int64 (coordinates.Length * 4 * sizeof<float>) * 1L<byte>)
+    use _ = new Timer(int64 (coordinates.Length * 4 * sizeof<float>) * 1L<b>)
     
     let sb = StringBuilder()
     
@@ -109,7 +110,6 @@ let toCoordinates (jObject : JsonValue) =
                 | c -> failwithf $"unexpected item for array '{c}'" )
 
         List l
-
         
     let fJFloat f = Partial f
     let fJString _ = NA
@@ -122,7 +122,7 @@ let toCoordinates (jObject : JsonValue) =
 /// very naif implementation of a json parser
 /// the way to go in the optimization is to explore combinator parsers and how it compares in performance with this implementation
 let fromJson (json:string) =
-    use _ = new Time(int64 json.Length * 1L<byte>)
+    use _ = new Timer(int64 json.Length * 1L<b>)
     
     let (|IsNum|_|) (c: char) = 
         if Char.IsDigit(c) || c='-' then Some () else None
@@ -134,6 +134,7 @@ let fromJson (json:string) =
     
     let rec readJson (json : string) at : int * JsonValue =
         let readString (json : string) at =
+            use _ = new Timer(0L<b>, "readString")
             let mutable i = at
             while i < json.Length && json[i] <> '"' do
                 i <- i + 1

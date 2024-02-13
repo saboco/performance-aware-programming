@@ -2,9 +2,10 @@
 open System
 open Haversine
 open Diagnostics
+open Timing
 
 let generateCoordinates seed n (radius : float) =
-    use _ = new Time(int64 (n * 4 * sizeof<float>) * 1L<byte>)    
+    use _ = new Timer(int64 (n * 4 * sizeof<float>) * 1L<b>)    
     let rLongInt0 = Random(seed)
     let rLongFractional0 = Random(seed * 2)
     let rLat0 = Random(seed * 3)
