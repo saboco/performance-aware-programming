@@ -1,9 +1,7 @@
 ﻿module haversine.Memory
 open System
-open System.Numerics
 open System.Runtime.InteropServices
 open Microsoft.FSharp.NativeInterop
-open haversine.System
 
 [<Flags>]
 type AllocationType =
@@ -45,7 +43,6 @@ type WriteTrackingState =
     | WRITE_WATCH_FLAG_RESET = 0x1u
    
 module Native =
-    open System.Runtime.InteropServices
     let [<Literal>] kernell32 = "kernel32.dll"
     let [<Literal>] kernellbase = "kernelbase.dll"
     
@@ -131,11 +128,32 @@ module Native =
     [<DllImport("multi_nop.dll", CallingConvention=CallingConvention.Cdecl)>]
     extern void NOP1x9AllBytes(UInt64 Count, byte* Data)
     
+    [<DllImport("conditional_nop.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void ConditionalNOP(UInt64 Count, byte* Data)
+    
+    [<DllImport("Bcrypt.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern Int32 BCryptGenRandom(int hAlgorithm, byte*  pbBuffer, UInt32 cbBuffer, UInt32 dwFlags)
+    
+    [<DllImport("jump_alignment.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void NOPAligned64(UInt64 Count, byte* Data)
+    
+    [<DllImport("jump_alignment.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void NOPAligned1(UInt64 Count, byte* Data)
+    
+    [<DllImport("jump_alignment.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void NOPAligned15(UInt64 Count, byte* Data)
+    
+    [<DllImport("jump_alignment.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void NOPAligned31(UInt64 Count, byte* Data)
+    
+    [<DllImport("jump_alignment.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void NOPAligned63(UInt64 Count, byte* Data)
+    
 open Native
 
 #nowarn "9"
 
-module Buffer =
+module Buffers =
     [<Struct>]
     type Buffer = {
         mutable Count : UInt64
@@ -167,10 +185,25 @@ module Buffer =
             NativeMemory.Free(NativePtr.toVoidPtr buffer.Data)
         
         buffer <- Unchecked.defaultof<Buffer>
+        
+    let allocateBufferV totalSize =
+        let mem = VirtualAlloc(
+            IntPtr.Zero,
+            uint64 totalSize,
+            AllocationType.MEM_RESERVE ||| AllocationType.MEM_COMMIT,
+            MemoryProtection.PAGE_READWRITE)
+        
+        { Count = totalSize; Data = NativePtr.ofNativeInt mem }
+        
+    let freeBufferV (buffer :Buffer byref) =
+        if buffer.Data <> NativePtr.nullPtr then
+            VirtualFree(NativePtr.toNativeInt buffer.Data, 0UL, FreeType.MEM_RELEASE) |> ignore
     
+        buffer <- Unchecked.defaultof<Buffer>
+        
+open Buffers
+
 module CirularBuffer =
-    open Buffer
-    open Native
     let [<Literal>] INVALID_HANDLE_VALUE = -1
     let [<Literal>] NULL = 0
     
@@ -202,7 +235,6 @@ module CirularBuffer =
     
     let allocateCircularBuffer(minimumSize : UInt64, repCount : UInt32) : CircularBuffer =
         // NOTE(casey): Allocation size has to be aligned to the allocation granularity otherwise the back-to-back buffer mapping might not work.
-        
         
         let mutable systemInfo = Unchecked.defaultof<SystemInfo>
         GetSystemInfo(&&systemInfo)
@@ -255,8 +287,6 @@ module CirularBuffer =
             printfn "FAILED"
 
 module TrackedBuffer =
-    open Buffer
-    open Native
     let [<Literal>] INVALID_HANDLE_VALUE = -1
     let [<Literal>] NULL = 0
     
@@ -364,7 +394,6 @@ module TrackedBuffer =
             printf("  FAILED\n");
    
 module SparseMemory =
-    open Buffer
     
     [<Struct>]
     type SparseBuffer = {
@@ -449,73 +478,114 @@ module ReadWriteTests =
             let mem = Array.create (int capacity) 1L
             int64 mem.Length * 1L<b>
         
-    let writeToAllBytesBuffer (capacity: uint64) =
+    let writeToAllBytesBuffer (buffer : Buffer) =
         fun () ->
-            let mutable buffer = Buffer.allocateBuffer capacity
-            for i in 0UL..(buffer.Count - 1UL) do
-               NativePtr.set buffer.Data (int i) (byte i)
-            Buffer.freeBuffer &buffer
+            let count = int buffer.Count - 1
+            for i in 0..count do
+               NativePtr.set buffer.Data i (byte i)
+            int64 buffer.Count * 1L<b>
+            
+    let MovAllBytesAsm (buffer : Buffer) =
+        fun () ->
+            MOVAllBytesASM(buffer.Count, buffer.Data)
             int64 buffer.Count * 1L<b>
         
-    let writeToAllBytesReusedBuffer (capacity: uint64) =
-        let buffer = Buffer.allocateBuffer capacity
+    let NOPAllBytesASM (buffer:Buffer) =
         fun () ->
-            for i in 0UL..(buffer.Count - 1UL) do
-               NativePtr.set buffer.Data (int i) (byte i) 
+            NOPAllBytesASM(buffer.Count)
+            int64 buffer.Count * 1L<b>
+            
+    let CMPAllBytesASM (buffer:Buffer) =
+        fun () ->
+            CMPAllBytesASM(buffer.Count)
+            int64 buffer.Count * 1L<b>
+            
+    let DECAllBytesASM (buffer : Buffer) =
+        fun () ->
+            DECAllBytesASM(buffer.Count)
+            int64 buffer.Count * 1L<b>
+            
+    let NOP3x1AllBytes (buffer : Buffer) =
+        fun () ->
+            NOP3x1AllBytes(buffer.Count, buffer.Data)
+            int64 buffer.Count * 1L<b>
+            
+    let NOP1x3AllBytes (buffer : Buffer) =
+        fun () ->
+            NOP1x3AllBytes(buffer.Count, buffer.Data)
+            int64 buffer.Count * 1L<b>
+            
+    let NOP1x9AllBytes (buffer : Buffer) =
+        fun () ->
+            NOP1x9AllBytes(buffer.Count, buffer.Data)
             int64 buffer.Count * 1L<b>
     
-    let MovAllBytesAsm size =
-        let mutable (arr : byte []) = Array.zeroCreate<byte> (int size)
-        fun () ->
-            let ptr = fixed &arr[0]
-            MOVAllBytesASM(size, ptr)
-            int64 size * 1L<b>
+    type BranchPattern =
+        | NeverTaken
+        | AlwaysTaken
+        | Every2
+        | Every3
+        | Every4
+        | RTRandom
+        | OSRandom
         
-    let NOPAllBytesASM size =
-        fun () ->
-            Native.NOPAllBytesASM(size)
-            int64 size * 1L<b>
+    let getMaxOSRandomCount() : UInt64 = 0xffffffffUL
+
+    let readOSRandomBytes (count : UInt64) (dest : nativeptr<byte>) =
+        let mutable result = false
+        if count < getMaxOSRandomCount() then
+            let r = BCryptGenRandom(0, dest, uint count, 0x00000002u)
+            result <- r = 0
             
-    let CMPAllBytesASM size =
-        fun () ->
-            Native.CMPAllBytesASM(size)
-            int64 size * 1L<b>
+        result
+    
+    let fillWithRandomBytes (dest : Buffer) =
+        let maxRandCount = getMaxOSRandomCount()
+        let mutable atOffset = 0UL
+        while atOffset < dest.Count do
+            let mutable readCount = dest.Count - atOffset
+            if readCount > maxRandCount then
+                readCount <- maxRandCount
             
-    let DECAllBytesASM size =
-        fun () ->
-            Native.DECAllBytesASM(size)
-            int64 size * 1L<b>
+            let ptr = NativePtr.toNativeInt dest.Data + nativeint atOffset
             
-    let NOP3x1AllBytes size =
-        let mutable (arr : byte []) = Array.zeroCreate<byte> (int size)
-        fun () ->
-            let ptr = fixed &arr[0]
-            NOP3x1AllBytes(size, ptr)
-            int64 size * 1L<b>
+            if not (readOSRandomBytes readCount (NativePtr.ofNativeInt ptr)) then
+                failwithf "fail filling buffer with system random bytes"
+                
+            atOffset <- atOffset + readCount;
+
+    let fillBufferWithPattern (pattern : BranchPattern) (buffer: Buffer) =
+        let random = Random()
+        let count = int buffer.Count - 1
+        match pattern with
+        | OSRandom -> fillWithRandomBytes buffer
+        | _ ->
+            for i in 0..count do
+                let value = 
+                    match pattern with
+                    | NeverTaken -> 0
+                    | AlwaysTaken -> 1
+                    | Every2 -> if i % 2 = 0 then 1 else 0
+                    | Every3 -> if i % 3 = 0 then 1 else 0
+                    | Every4 -> if i % 4 = 0 then 1 else 0
+                    | RTRandom -> random.Next() 
+                    | OSRandom -> 0
+                    
+                NativePtr.set buffer.Data i (byte value)
             
-    let NOP1x3AllBytes size =
-        let mutable (arr : byte []) = Array.zeroCreate<byte> (int size)
+    let conditionalNop (count : UInt64) (data : nativeptr<byte>) =
         fun () ->
-            let ptr = fixed &arr[0]
-            NOP1x3AllBytes(size, ptr)
-            int64 size * 1L<b>
-            
-    let NOP1x9AllBytes size =
-        let mutable (arr : byte []) = Array.zeroCreate<byte> (int size)
-        fun () ->
-            let ptr = fixed &arr[0]
-            NOP1x9AllBytes(size, ptr)
-            int64 size * 1L<b>
+            ConditionalNOP(count, data)
+            int64 count * 1L<b>
             
     let runReadWriteTests () =
-        //let path = $"{__SOURCE_DIRECTORY__}\..\..\input\data.json"
         let gigabyte = 1024UL*1024UL*1024UL
+        let mutable buffer = allocateBufferV gigabyte
         let functions = [|
-            "writeToAllBytesBuffer", writeToAllBytesBuffer gigabyte
-            "writeToAllBytesReusedBuffer", writeToAllBytesReusedBuffer gigabyte
-            "NOP3x1AllBytes", NOP3x1AllBytes gigabyte
-            "NOP1x3AllBytes", NOP1x3AllBytes gigabyte
-            "NOP1x9AllBytes", NOP1x9AllBytes gigabyte
+            "writeToAllBytesBuffer", writeToAllBytesBuffer buffer
+            "NOP3x1AllBytes", NOP3x1AllBytes buffer
+            "NOP1x3AllBytes", NOP1x3AllBytes buffer
+            "NOP1x9AllBytes", NOP1x9AllBytes buffer
         |]
         
         Console.CursorVisible <- false
@@ -525,10 +595,83 @@ module ReadWriteTests =
                 let results = Repetition.repeat true 10L<s> fn
                 Repetition.print results
                 printfn "\n"
+                
+        freeBufferV &buffer
+        
+    let NOPAligned64 (buffer : Buffer) =
+        fun () ->
+            NOPAligned64(buffer.Count, buffer.Data)
+            int64 buffer.Count * 1L<b>
+            
+    let NOPAligned1 (buffer : Buffer) =
+        fun () ->
+            NOPAligned1(buffer.Count, buffer.Data)
+            int64 buffer.Count * 1L<b>
+            
+    let NOPAligned15 (buffer : Buffer) =
+        fun () ->
+            NOPAligned15(buffer.Count, buffer.Data)
+            int64 buffer.Count * 1L<b>
+            
+    let NOPAligned31 (buffer : Buffer) =
+        fun () ->
+            NOPAligned63(buffer.Count, buffer.Data)
+            int64 buffer.Count * 1L<b>
+            
+    let NOPAligned63 (buffer : Buffer) =
+        fun () ->
+            NOPAligned63(buffer.Count, buffer.Data)
+            int64 buffer.Count * 1L<b>
+            
+    let runJumpAlignments () =
+        let gigabyte = 1024UL*1024UL*1024UL
+        let mutable buffer = allocateBufferV gigabyte
+        let functions = [|
+            "NOPAligned64", NOPAligned64 buffer
+            "NOPAligned1", NOPAligned1 buffer
+            "NOP1x3AllBytes", NOPAligned15 buffer
+            "NOP1x9AllBytes", NOPAligned31 buffer
+            "NOPAligned63", NOPAligned63 buffer
+        |]
+        
+        Console.CursorVisible <- false
+        while true do
+            for name, fn in functions do
+                printfn $"--- {name} ---"
+                let results = Repetition.repeat true 10L<s> fn
+                Repetition.print results
+                printfn "\n"
+                
+        freeBufferV &buffer
+            
+    let runBranchPatterns () =
+        //let path = $"{__SOURCE_DIRECTORY__}\..\..\input\data.json"
+        let gigabyte = 1024UL*1024UL*1024UL
+        let mutable buffer = allocateBufferV gigabyte
+        let cases = 
+            [|
+                OSRandom  
+                NeverTaken
+                AlwaysTaken
+                Every2
+                Every3
+                Every4
+                RTRandom
+            |]
+        
+        Console.CursorVisible <- false
+        while true do
+            for case in cases do
+                printfn $"--- {case} ---"
+                fillBufferWithPattern case buffer
+                let fn = conditionalNop (buffer.Count - 10UL) buffer.Data
+                let results = Repetition.repeat true 10L<s> fn
+                Repetition.print results
+                printfn "\n"
+                
+        freeBufferV &buffer
      
 module PageFaultTests =
-    open System.Runtime.InteropServices
-    open Microsoft.FSharp.NativeInterop
     open Diagnostics
     open System.IO.MemoryMappedFiles
     open System.IO
@@ -676,14 +819,14 @@ module PageFaultTests =
         pageAllocationTest touchMemory Marshal.AllocHGlobal Marshal.FreeHGlobal pageCount
     
     let virtualAlloc totalSize =
-        Native.VirtualAlloc(
+        VirtualAlloc(
             IntPtr.Zero,
             uint64 totalSize,
             AllocationType.MEM_RESERVE ||| AllocationType.MEM_COMMIT,
             MemoryProtection.PAGE_READWRITE)
         
     let virtualFree (ptr: nativeint) =
-        Native.VirtualFree(ptr, 0UL, FreeType.MEM_RELEASE) |> ignore
+        VirtualFree(ptr, 0UL, FreeType.MEM_RELEASE) |> ignore
             
     let pageAllocationVirtualAlloc touchMemory pageCount =
         pageAllocationTest touchMemory virtualAlloc virtualFree pageCount

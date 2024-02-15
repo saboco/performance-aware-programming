@@ -4,7 +4,6 @@
 
 open System
 open System.IO
-open System.Runtime.InteropServices
 open Diagnostics
 open Timing
 
@@ -72,5 +71,5 @@ let TreatHaversineData () =
 [<EntryPoint>]
 let main (_: string []) =
     printfn $"CPU Frequency {estimateCpuFrequency ()} Hz"
-    ReadWriteTests.runReadWriteTests ()
+    ReadWriteTests.runJumpAlignments ()
     0
