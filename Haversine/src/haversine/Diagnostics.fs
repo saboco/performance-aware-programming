@@ -262,7 +262,7 @@ module Repetition =
         
     let repeat printProgression (secondsToTry: int64<s>) (fn : unit -> int64<b>) =
         let cpuFreq = Timing.estimateCpuFrequency()
-        Native.InitializeMetrics() |> ignore
+        Native.InitializeMetrics()
         let timeToTry = cpuFreq * 1L<cycle/s> * secondsToTry 
         
         let mutable repetitionsResults = {

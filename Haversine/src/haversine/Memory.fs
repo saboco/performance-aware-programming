@@ -149,6 +149,24 @@ module Native =
     [<DllImport("jump_alignment.dll", CallingConvention=CallingConvention.Cdecl)>]
     extern void NOPAligned63(UInt64 Count, byte* Data)
     
+    [<DllImport("rat.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void RATAdd()
+    
+    [<DllImport("rat.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void RATMovAdd()
+    
+    [<DllImport("read_unroll.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void Read_x1(UInt64 Count, byte* Data)
+    
+    [<DllImport("read_unroll.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void Read_x2(UInt64 Count, byte* Data)
+    
+    [<DllImport("read_unroll.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void Read_x3(UInt64 Count, byte* Data)
+    
+    [<DllImport("read_unroll.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void Read_x4(UInt64 Count, byte* Data)
+    
 open Native
 
 #nowarn "9"
@@ -670,7 +688,57 @@ module ReadWriteTests =
                 printfn "\n"
                 
         freeBufferV &buffer
-     
+        
+    let executeRatTests () =
+        let loopCount = 1000_000_000L
+        let ratAdd =
+            fun () ->
+                RATAdd()
+                loopCount * 1L<b>
+            
+        let ratMovAdd =
+            fun () ->
+                RATMovAdd()
+                loopCount * 1L<b>
+                
+        Console.CursorVisible <- false
+        while true do
+            for name,fn in [|("RATAdd",ratAdd);("RATMovAdd", ratMovAdd)|] do
+                printfn $"--- {name} ---"
+                let results = Repetition.repeat true 10L<s> fn
+                Repetition.print results
+                printfn "\n"
+                
+    let runUnrollReadTests () =
+        let count = 1024UL*1024UL*1024UL
+        let readX1 (buffer : Buffer)=
+            fun() -> Read_x1 (count, buffer.Data); int64 count * 1L<b>
+        let readX2 (buffer : Buffer)=
+            fun() -> Read_x1 (count, buffer.Data); int64 count * 1L<b>
+        let readX3 (buffer : Buffer)=
+            fun() -> Read_x1 (count, buffer.Data); int64 count * 1L<b>
+        let readX4 (buffer : Buffer)=
+            fun() -> Read_x1 (count, buffer.Data); int64 count * 1L<b>
+        
+        let mutable buffer = allocateBufferV 4096UL
+        let functions = 
+            [|
+                "read_x1", readX1 buffer
+                "read_x2", readX2 buffer
+                "read_x3", readX3 buffer
+                "read_x4", readX4 buffer
+            |]
+        
+        Console.CursorVisible <- false
+        while true do
+            for name,fn in functions do
+                printfn $"--- {name} ---"
+                let results = Repetition.repeat true 10L<s> fn
+                Repetition.print results
+                printfn "\n"
+                
+        freeBufferV &buffer
+        
 module PageFaultTests =
     open Diagnostics
     open System.IO.MemoryMappedFiles
