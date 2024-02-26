@@ -167,6 +167,25 @@ module Native =
     [<DllImport("read_unroll.dll", CallingConvention=CallingConvention.Cdecl)>]
     extern void Read_x4(UInt64 Count, byte* Data)
     
+    [<DllImport("byte_read.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void Read_1x2(UInt64 Count, byte* Data)
+    
+    [<DllImport("byte_read.dll", CallingConvention=CallingConvention.Cdecl)>]
+    extern void Read_8x2(UInt64 Count, byte* Data)
+    
+    module SIMD = 
+        [<DllImport("read_withs.dll", CallingConvention=CallingConvention.Cdecl)>]
+        extern void Read_4x2(UInt64 Count, byte* Data)
+        
+        [<DllImport("read_withs.dll", CallingConvention=CallingConvention.Cdecl)>]
+        extern void Read_8x2(UInt64 Count, byte* Data)
+        
+        [<DllImport("read_withs.dll", CallingConvention=CallingConvention.Cdecl)>]
+        extern void Read_16x2(UInt64 Count, byte* Data)
+        
+        [<DllImport("read_withs.dll", CallingConvention=CallingConvention.Cdecl)>]
+        extern void Read_32x2(UInt64 Count, byte* Data)
+    
 open Native
 
 #nowarn "9"
@@ -714,11 +733,11 @@ module ReadWriteTests =
         let readX1 (buffer : Buffer)=
             fun() -> Read_x1 (count, buffer.Data); int64 count * 1L<b>
         let readX2 (buffer : Buffer)=
-            fun() -> Read_x1 (count, buffer.Data); int64 count * 1L<b>
+            fun() -> Read_x2 (count, buffer.Data); int64 count * 1L<b>
         let readX3 (buffer : Buffer)=
-            fun() -> Read_x1 (count, buffer.Data); int64 count * 1L<b>
+            fun() -> Read_x3 (count, buffer.Data); int64 count * 1L<b>
         let readX4 (buffer : Buffer)=
-            fun() -> Read_x1 (count, buffer.Data); int64 count * 1L<b>
+            fun() -> Read_x4 (count, buffer.Data); int64 count * 1L<b>
         
         let mutable buffer = allocateBufferV 4096UL
         let functions = 
@@ -727,6 +746,66 @@ module ReadWriteTests =
                 "read_x2", readX2 buffer
                 "read_x3", readX3 buffer
                 "read_x4", readX4 buffer
+            |]
+        
+        Console.CursorVisible <- false
+        while true do
+            for name,fn in functions do
+                printfn $"--- {name} ---"
+                let results = Repetition.repeat true 10L<s> fn
+                Repetition.print results
+                printfn "\n"
+                
+        freeBufferV &buffer
+        
+    let runByteReadTests () =
+        let count = 1024UL*1024UL*1024UL
+        let read1x2 (buffer : Buffer)=
+            fun() -> Read_1x2 (count, buffer.Data); int64 count * 1L<b>
+        
+        let read8x2 (buffer : Buffer)=
+            fun() -> Read_8x2 (count, buffer.Data); int64 count * 1L<b>
+        
+        
+        let mutable buffer = allocateBufferV 4096UL
+        let functions = 
+            [|
+                "read1x2", read1x2 buffer
+                "read8x2", read8x2 buffer
+            |]
+        
+        Console.CursorVisible <- false
+        while true do
+            for name,fn in functions do
+                printfn $"--- {name} ---"
+                let results = Repetition.repeat true 10L<s> fn
+                Repetition.print results
+                printfn "\n"
+                
+        freeBufferV &buffer
+        
+    let runReadWithsTests () =
+        let size = 1024UL*1024UL*1024UL
+        
+        let read4x2 (buffer : Buffer)=
+            fun() -> SIMD.Read_4x2 (buffer.Count, buffer.Data); int64 buffer.Count * 1L<b>
+            
+        let read8x2 (buffer : Buffer)=
+            fun() -> SIMD.Read_8x2 (buffer.Count, buffer.Data); int64 buffer.Count * 1L<b>
+        
+        let read16x2 (buffer : Buffer)=
+            fun() -> SIMD.Read_16x2 (buffer.Count, buffer.Data); int64 buffer.Count * 1L<b>
+
+        let read32x2 (buffer : Buffer)=
+            fun() -> SIMD.Read_32x2 (buffer.Count, buffer.Data); int64 buffer.Count * 1L<b>
+            
+        let mutable buffer = allocateBufferV size
+        let functions = 
+            [|
+                "read4x2",  read4x2 buffer
+                "read8x2",  read8x2 buffer
+                "read16x2", read16x2 buffer
+                "read32x2", read32x2 buffer
             |]
         
         Console.CursorVisible <- false

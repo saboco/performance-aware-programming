@@ -9,6 +9,8 @@ call copy "%_dir%\conditional_nop.asm" "%_build_dir%\"
 call copy "%_dir%\jump_alignment.asm" "%_build_dir%\"
 call copy "%_dir%\rat.asm" "%_build_dir%\"
 call copy "%_dir%\read_unroll.asm" "%_build_dir%\"
+call copy "%_dir%\byte_read.asm" "%_build_dir%\"
+call copy "%_dir%\read_withs.asm" "%_build_dir%\"
 
 IF NOT EXIST "%_build_dir%" mkdir "%_build_dir%"
 
@@ -37,12 +39,20 @@ call link /dll /export:RATAdd /export:RATMovAdd rat.obj MSVCRTD.lib
 call nasm -f win64 -o read_unroll.obj read_unroll.asm
 call link /dll /export:Read_x1 /export:Read_x2 /export:Read_x3 /export:Read_x4 read_unroll.obj MSVCRTD.lib
 
+call nasm -f win64 -o byte_read.obj byte_read.asm
+call link /dll /export:Read_1x2 /export:Read_8x2 byte_read.obj MSVCRTD.lib
+
+call nasm -f win64 -o read_withs.obj read_withs.asm
+call link /dll /export:Read_4x2 /export:Read_8x2 /export:Read_16x2 /export:Read_32x2 read_withs.obj MSVCRTD.lib
+
 call copy "%_build_dir%\nop_loop.dll" "%_dir%haversine\bin\Debug\net8.0\"
 call copy "%_build_dir%\multi_nop.dll" "%_dir%haversine\bin\Debug\net8.0\"
 call copy "%_build_dir%\conditional_nop.dll" "%_dir%haversine\bin\Debug\net8.0\"
 call copy "%_build_dir%\jump_alignment.dll" "%_dir%haversine\bin\Debug\net8.0\"
 call copy "%_build_dir%\rat.dll" "%_dir%haversine\bin\Debug\net8.0\"
 call copy "%_build_dir%\read_unroll.dll" "%_dir%haversine\bin\Debug\net8.0\"
+call copy "%_build_dir%\byte_read.dll" "%_dir%haversine\bin\Debug\net8.0\"
+call copy "%_build_dir%\read_withs.dll" "%_dir%haversine\bin\Debug\net8.0\"
 
 popd
 
