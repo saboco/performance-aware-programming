@@ -71,5 +71,5 @@ let TreatHaversineData () =
 [<EntryPoint>]
 let main (_: string []) =
     printfn $"CPU Frequency {estimateCpuFrequency ()} Hz"
-    ReadWriteTests.runReadWithsTests ()
+    ReadWriteTests.runCacheTests ()
     0

@@ -185,6 +185,9 @@ module Native =
         
         [<DllImport("read_withs.dll", CallingConvention=CallingConvention.Cdecl)>]
         extern void Read_32x2(UInt64 Count, byte* Data)
+        
+        [<DllImport("cache_tests.dll", CallingConvention=CallingConvention.Cdecl)>]
+        extern void Read_Chunk(UInt64 Count, byte* Data, Int64 mask)
     
 open Native
 
@@ -815,6 +818,31 @@ module ReadWriteTests =
                 let results = Repetition.repeat true 10L<s> fn
                 Repetition.print results
                 printfn "\n"
+                
+        freeBufferV &buffer
+        
+    let runCacheTests () =
+        
+        let size = 1024UL*1024UL*1024UL
+        
+        let readChunk (buffer : Buffer) mask=
+            fun () -> SIMD.Read_Chunk (buffer.Count, buffer.Data, mask); int64 buffer.Count * 1L<b>
+            
+        let mutable buffer = allocateBufferV size
+        
+        let functions = 
+            [|
+                "readChunk",  readChunk buffer
+            |]
+        
+        Console.CursorVisible <- false
+        while true do
+            for name,fn in functions do
+                for mask in [|1023L; 4095L; 16383L; 32767L; 65535L; 131071L; 262143L; 524287L; 1048575L; 2097151L; 3145727L; 4194303L; 5242879L; 6291455L; 8388607L; 10485759L; 104857599L; 1073741823L|] do
+                    printfn $"--- {name}: {(mask+1L)/1024L}Kb 0x{Convert.ToString(mask, 16)} ---"
+                    let results = Repetition.repeat true 10L<s> (fn mask)
+                    Repetition.print results
+                    printfn "\n"
                 
         freeBufferV &buffer
         
