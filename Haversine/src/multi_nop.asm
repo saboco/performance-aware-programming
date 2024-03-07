@@ -18,6 +18,10 @@ global NOP3x1AllBytes
 global NOP1x3AllBytes
 global NOP1x9AllBytes
 
+export NOP3x1AllBytes
+export NOP1x3AllBytes
+export NOP1x9AllBytes
+
 section .text
 
 ;

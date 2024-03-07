@@ -23,11 +23,11 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "haversine", "src\haversine\
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".build", ".build", "{850B7EFF-5B56-4FBF-849C-0BB1ED1F9E14}"
 	ProjectSection(SolutionItems) = preProject
-		src\build_rdtsc.bat = src\build_rdtsc.bat
-		src\build_windows_metrics.bat = src\build_windows_metrics.bat
-		src\build.bat = src\build.bat
-		src\build_page_fault_probe.bat = src\build_page_fault_probe.bat
-		src\build_asm.bat = src\build_asm.bat
+		build.bat = build.bat
+		build_asm.bat = build_asm.bat
+		build_single_asm.bat = build_single_asm.bat
+		build_single_cpp.bat = build_single_cpp.bat
+		build_cpp.bat = build_cpp.bat
 	EndProjectSection
 EndProject
 Global

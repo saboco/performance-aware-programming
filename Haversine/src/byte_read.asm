@@ -17,6 +17,9 @@
 global Read_1x2
 global Read_8x2
 
+export Read_1x2
+export Read_8x2
+
 section .text
 
 ;

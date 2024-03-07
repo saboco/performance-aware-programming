@@ -19,6 +19,11 @@ global Read_x2
 global Read_x3
 global Read_x4
 
+export Read_x1
+export Read_x2
+export Read_x3
+export Read_x4
+
 section .text
 
 ;

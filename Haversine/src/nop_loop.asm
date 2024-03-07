@@ -19,6 +19,11 @@ global NOPAllBytesASM
 global CMPAllBytesASM
 global DECAllBytesASM
 
+export MOVAllBytesASM
+export NOPAllBytesASM
+export CMPAllBytesASM
+export DECAllBytesASM
+
 section .text
 
 ;

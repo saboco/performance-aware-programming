@@ -1,4 +1,5 @@
-global Read_Chunk
+global  Read_Chunk
+export Read_Chunk
 
 section .text
 
@@ -7,7 +8,7 @@ Read_Chunk:
 	align 64
 .loop:
     vmovdqu ymm0, [rax]
-    vmovdqu ymm1, [rax + 32]
+    vmovdqu ymm0, [rax + 32]
     vmovdqu ymm0, [rax + 64]
     vmovdqu ymm0, [rax + 96]
     add r10, 128

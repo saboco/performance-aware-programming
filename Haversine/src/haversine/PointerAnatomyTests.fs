@@ -3,7 +3,7 @@ open Binary
 open VirtualAddress
 
 let run () =
-    for pointerIndex in 0..16 do
+    for _ in 0..16 do
         let  pointer : nativeint =
             Memory.Native.VirtualAlloc(
                 0,

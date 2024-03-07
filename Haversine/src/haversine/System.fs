@@ -38,9 +38,7 @@ type SystemInfo = {
   ProcessorRevision: UInt16
 }
 
-module Native =
-    let [<Literal>] kernell32 = "kernel32.dll"
-    
-    [<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
-    extern void GetSystemInfo (SystemInfo* sysemInfo)
-    
+let [<Literal>] kernell32 = "kernel32.dll"
+
+[<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
+extern void GetSystemInfo (SystemInfo* sysemInfo)

@@ -20,6 +20,12 @@ global NOPAligned15
 global NOPAligned31
 global NOPAligned63
 
+export NOPAligned64
+export NOPAligned1
+export NOPAligned15
+export NOPAligned31
+export NOPAligned63
+
 section .text
 
 ;

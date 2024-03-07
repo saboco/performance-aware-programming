@@ -19,6 +19,11 @@ global Read_8x2
 global Read_16x2
 global Read_32x2
 
+export Read_4x2 
+export Read_8x2 
+export Read_16x2 
+export Read_32x2 
+
 section .text
 
 ;

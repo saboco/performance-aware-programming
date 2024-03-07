@@ -3,12 +3,14 @@
 #nowarn "9"
 
 open System
+open System.Diagnostics.CodeAnalysis
 open System.IO
+open Argu
 open Diagnostics
 open Timing
-
 open haversine
 open haversine.Memory
+open haversine.CommandLine
  
 module Test =
     [<CLIMutable>]
@@ -68,8 +70,51 @@ let TreatHaversineData () =
     Timer.EndTime()
     Timer.Print()
 
+
+let checkStructure =
+#if DEBUG
+    true
+#else
+    false
+#endif
+
 [<EntryPoint>]
-let main (_: string []) =
+let main (argv: string []) =
     printfn $"CPU Frequency {estimateCpuFrequency ()} Hz"
-    ReadWriteTests.runCacheTests ()
+    let helpMessage =
+            "\nusage example:\nhaversine.exe systeminfo"
+            
+    let errorHandler: IExiter =
+        ProcessExiter(
+            colorizer =
+                function
+                | ErrorCode.HelpText -> None
+                | _ -> Some ConsoleColor.Red
+        )
+            
+    let parser =
+        ArgumentParser.Create<SystemArgs>(
+            programName = "haversine",
+            errorHandler = errorHandler,
+            checkStructure = checkStructure,
+            helpTextMessage = helpMessage
+        )
+    
+    let results = parser.ParseCommandLine argv
+    
+    if results.IsUsageRequested then
+        let usage = parser.PrintUsage()
+        printfn $"{usage}"
+        
+    let command = results.GetSubCommand()
+    
+    match command with
+    | SystemInfo ->
+        let mutable systemInfo = Unchecked.defaultof<SystemInfo>
+        GetSystemInfo(&&systemInfo)
+        printfn $"%A{systemInfo}"
+    | Cache ->
+        ReadWriteTests.runCacheTests ()
+    | PointerAnatomy -> PointerAnatomyTests.run()
+    | ReadWithsTests -> ReadWriteTests.runReadWithsTests()
     0

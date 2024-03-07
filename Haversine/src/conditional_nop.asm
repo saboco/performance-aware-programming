@@ -16,6 +16,8 @@
 
 global ConditionalNOP
 
+export ConditionalNOP
+
 section .text
 
 ;

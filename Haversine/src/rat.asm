@@ -17,6 +17,9 @@
 global RATAdd
 global RATMovAdd
 
+export RATAdd
+export RATMovAdd
+
 section .text
 
 ;
