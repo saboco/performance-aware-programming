@@ -25,6 +25,8 @@
     <Compile Include="VirtualAddress.fs" />
     <Compile Include="System.fs" />
     <Compile Include="Memory.fs" />
+    <Compile Include="PageFault.fs" />
+    <Compile Include="MemoryMapping.fs" />
     <Compile Include="Haversine.fs" />
     <Compile Include="PointerAnatomyTests.fs" />
     <Compile Include="Generator.fs" />
@@ -35,6 +37,7 @@
 
   <ItemGroup>
     <PackageReference Include="Argu" Version="6.2.2" />
+    <PackageReference Include="Plotly.NET" Version="4.2.0" />
   </ItemGroup>
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
