@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>SystemTesting</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup>
+    <DefineConstants>FULL_PROFILING</DefineConstants>
+    <FSharpPrefer64BitTools>True</FSharpPrefer64BitTools>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <Tailcalls>False</Tailcalls>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Diagnostics.fs" />
+    <Compile Include="Binary.fs" />
+    <Compile Include="VirtualAddress.fs" />
+    <Compile Include="System.fs" />
+    <Compile Include="Memory.fs" />
+    <Compile Include="PageFault.fs" />
+    <Compile Include="MemoryMapping.fs" />
+    <Compile Include="PointerAnatomyTests.fs" />
+    <Compile Include="CommandLine.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.2" />
+    <PackageReference Include="Plotly.NET" Version="4.2.0" />
+  </ItemGroup>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="&quot;$(SolutionDir)\build.bat&quot;" />
+  </Target>
+  
+</Project>
