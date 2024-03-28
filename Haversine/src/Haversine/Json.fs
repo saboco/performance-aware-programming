@@ -1,10 +1,13 @@
 ﻿module Haversine.Json
 
 open System
+open System.Collections.Generic
 open System.Text
+open Haversine.Calculator
 open SystemTesting
 open Diagnostics
 open Timing
+open Calculator
 
 let toJson (coordinates : ((float*float) *(float*float))[]) =
     use _ = new Timer(int64 (coordinates.Length * 4 * sizeof<float>) * 1L<b>)
@@ -206,9 +209,54 @@ let toCoordinates (jObject : JsonValue) =
     let fJNull () = NA
     
     match loop fJArray fJObject fJFloat fJString fJNull jObject with
-    | List l -> Array.ofSeq l
+    | List l -> l |> Seq.map (fun ((x0,y0),(x1,y1)) -> { x0=x0;y0=y0;x1=x1;y1=y1}) |> Array.ofSeq
     | c -> failwithf $"Unwrapping result Unexpected case '%A{c}'"
 
+type PairsBuilder ()=
+    let pairs = Dictionary<string, float>()
+    let coordinates = ResizeArray<Coordinates>() 
+    let mutable key = ""
+    let mutable waitingValue = false
+    
+    member this.Key k =
+        key <- k
+        waitingValue <- true
+        this
+        
+    member this.Value (v : float) =
+        if waitingValue then
+            waitingValue <- false
+            this.Pair(key, v)
+        this
+        
+    member private this.Pair (k:string,v : float) =
+          pairs.Add(k,v)
+          if pairs.Count = 4 then
+              coordinates.Add({
+                  x0=pairs["x0"]
+                  y0=pairs["y0"]
+                  x1=pairs["x1"]
+                  y1=pairs["y1"]
+              })
+              pairs.Clear()
+              
+    member this.Build () = Array.ofSeq coordinates 
+        
 let toCoordinates2 (jsonValue : JsonValue) =
-    // TODO: try a new implementation
-    ()
+       
+    let rec foldJson (builder : PairsBuilder) json =
+       match json with
+       | JsonNum n -> builder.Value n
+       | JsonString _ -> builder
+       | JsonEnd -> builder
+       | JsonObject o ->
+           let l = Map.toList o
+           let folder (builder : PairsBuilder) (k : string,v : JsonValue) =
+               let newBuilder = builder.Key k
+               foldJson newBuilder v
+           List.fold folder builder l
+       | JsonArray arr -> List.fold foldJson builder arr
+    
+    let builder = foldJson (PairsBuilder()) jsonValue
+    builder.Build()
+           

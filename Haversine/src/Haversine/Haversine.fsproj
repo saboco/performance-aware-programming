@@ -24,7 +24,7 @@
     <Compile Include="..\..\..\SystemTesting\src\SystemTesting\Diagnostics.fs">
       <Link>Diagnostics.fs</Link>
     </Compile>
-    <Compile Include="Haversine.fs" />
+    <Compile Include="Calculator.fs" />
     <Compile Include="Generator.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="Program.fs" />

@@ -26,9 +26,8 @@ let generateHaversineData earthRadius =
      File.WriteAllText($"{__SOURCE_DIRECTORY__}\..\..\input\data.json", json)
      File.WriteAllText($"{__SOURCE_DIRECTORY__}\..\..\input\expectedSum.data", generatedSum.ToString()))
 
-let treatHaversineData () =
+let treatHaversineData earthRadius =
     Timer.BeginTime()
-    let earthRadius = 6372.8
     let mutable json = ""
 
     let mutable expectedSum = 0.0
@@ -44,7 +43,7 @@ let treatHaversineData () =
      t.CountBytes(int64 json.Length * 1L<b>))
 
     printfn "Deserializing data"
-    let pairs = Json.fromJson json |> Json.toCoordinates
+    let pairs = Json.fromJson json |> Json.toCoordinates2
 
     printfn "Haversine sum"
     let sum = sumHaversineDistances earthRadius pairs
@@ -59,6 +58,8 @@ let treatHaversineData () =
 let main (argv : string []) =
     printfn $"CPU Frequency {estimateCpuFrequency ()} Hz"
 
-    treatHaversineData()
+    let earthRadius = 6372.8
+    // generateHaversineData earthRadius
+    treatHaversineData earthRadius
 
     0
