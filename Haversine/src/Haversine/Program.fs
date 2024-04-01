@@ -43,7 +43,7 @@ let treatHaversineData earthRadius =
      t.CountBytes(int64 json.Length * 1L<b>))
 
     printfn "Deserializing data"
-    let pairs = Json.fromJson json |> Json.toCoordinates2
+    let pairs = Json.fromJson json Json.toCoordinates
 
     printfn "Haversine sum"
     let sum = sumHaversineDistances earthRadius pairs

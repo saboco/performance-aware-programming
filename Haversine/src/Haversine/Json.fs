@@ -57,16 +57,16 @@ let toJson (coordinates : ((float*float) *(float*float))[]) =
     sb.ToString()
 
 /// JSON model, it does not handle all cases, ex: null is missing
-type JsonValue =
-    | JsonString of string
-    | JsonNum of float
-    | JsonArray of JsonValue list
-    | JsonObject of Map<string, JsonValue>
-    | JsonEnd
+type JValue =
+    | JString of string
+    | JNum of float
+    | JArray of JValue list
+    | JObject of Map<string, JValue>
+    | JNull
 
 /// very naif implementation of a json parser
 /// the way to go in the optimization is to explore combinator parsers and how it compares in performance with this implementation
-let fromJson (json:string) =
+let fromJson (json:string) f =
     use _ = new Timer(int64 json.Length * 1L<b>)
     
     let (|IsNum|_|) (c: char) = 
@@ -77,14 +77,14 @@ let fromJson (json:string) =
         | true, f -> Some f
         | _ -> None
     
-    let rec readJson (json : string) at : int * JsonValue =
+    let rec readJson (json : string) at : int * JValue =
         let readString (json : string) at =
             use _ = new Timer(0L<b>, "readString")
             let mutable i = at
             while i < json.Length && json[i] <> '"' do
                 i <- i + 1
 
-            i + 1, JsonString (json.Substring(at, i - at))
+            i + 1, JString (json.Substring(at, i - at))
         
         let readNum (json : string) at =
             let mutable i = at
@@ -93,7 +93,7 @@ let fromJson (json:string) =
                 
             i,  json.Substring(at, i - at)
         
-        let readJsonArray (jObjects : ResizeArray<JsonValue>) (json : string) at =
+        let readJsonArray (jObjects : ResizeArray<JValue>) (json : string) at =
             let mutable i = at
             while i < json.Length && json[i] <> ']' do
                 let j, jObject = readJson json i
@@ -113,26 +113,26 @@ let fromJson (json:string) =
             at + 1, key.Trim().TrimStart('"').TrimEnd('"')
 
         let readJsonObject (json : string) at =
-            let mutable jObject = Map.empty<string, JsonValue>
+            let mutable jObject = Map.empty<string, JValue>
             let mutable i = at
             while i < json.Length && json[i] <> '}' do
                 let j, key = readKey json i
                 let j, value = readJson json j
                 
-                if value <> JsonEnd then
+                if value <> JNull then
                     jObject <- Map.add key value jObject
                 i <- j
                 while i < json.Length && (json[i] = ' ' || json[i] = ',') do
                     i <- i + 1
-            i + 1, JsonObject jObject
+            i + 1, JObject jObject
 
         if at < json.Length then
             let token = json[at]
             match token with
             | '[' -> 
-                let jObjects = ResizeArray<JsonValue>()
+                let jObjects = ResizeArray<JValue>()
                 let at, _ = readJsonArray jObjects json (at + 1)
-                at, JsonArray (List.ofSeq jObjects)
+                at, JArray (List.ofSeq jObjects)
             | '{' -> readJsonObject json (at + 1)
             | '"' -> readString json (at + 1)
             | ' ' -> readJson json (at + 1)
@@ -140,18 +140,77 @@ let fromJson (json:string) =
                 let at, value = readNum json at
                 let jsonNum =
                     match value with
-                    | IsFloat f -> JsonNum f
+                    | IsFloat f -> JNum f
                     | num -> failwithf $"unsupported num format '{num}'"
                 at, jsonNum
             | c -> failwithf $"Unexpected token '{c}' at {at} position"
             
         else
-            at, JsonEnd
+            at, JNull
 
     let at, jObject = readJson json 0
     printfn $"read up to {at} in the file"
-    jObject
-    
+    f jObject
+
+let rec foldBackJson fString fBool fNum fNull fArray fObject jValue (cont : 'a -> 'r) : 'r =
+    let recurse = foldBackJson fString fBool fNum fNull fArray fObject
+    match jValue with
+    | JString s -> cont (fString s)
+    // | JBool b -> cont (fBool b)
+    | JNum n -> cont (fNum n)
+    | JArray l -> 
+        let newCont innerVal =
+            let newInnerVal = fArray innerVal
+            cont newInnerVal
+
+        List.fold (fun state jValue acc -> 
+            recurse jValue (fun x -> state (x::acc))) 
+            newCont 
+            l
+        |> fun f -> f []
+        
+    | JObject o ->
+        let newCont innerVal =
+            let newVal = fObject innerVal
+            cont newVal
+        
+        Map.fold (fun state k jValue acc ->
+            recurse jValue (fun x -> state (Map.add k x acc)))
+            newCont
+            o
+        |> fun f -> f Map.empty
+    | JNull -> cont fNull
+
+let rec foldBackBackJson fString fBool fNum fNull fArray fObject jValue (cont : 'a -> 'r) : 'r =
+    let recurse = foldBackBackJson fString fBool fNum fNull fArray fObject
+    match jValue with
+    | JString s -> cont (fString s)
+    // | JBool b -> cont (fBool b)
+    | JNum n -> cont (fNum n)
+    | JArray l -> 
+        let newCont innerVal =
+            let newInnerVal = fArray innerVal
+            cont newInnerVal
+
+        List.foldBack (fun jValue state acc -> 
+            recurse jValue (fun x -> state (x::acc))) 
+            (l |> List.rev)
+            newCont 
+        |> fun f -> f []
+        
+    | JObject o ->
+        let newCont innerVal =
+            let newVal = fObject innerVal
+            cont newVal
+        
+        Map.foldBack (fun k jValue state acc ->
+            recurse jValue (fun x -> state (Map.add k x acc)))
+            o
+            newCont
+        |> fun f -> f Map.empty
+    | JNull -> cont fNull
+
+
 type Pairs =
     | Complete of x0: float * y0: float * x1: float * y1: float
     | Partial of float
@@ -164,7 +223,7 @@ let partialToFloat p =
     | pairs -> failwithf $"unexpected case '%A{pairs}"
 
 /// Custom conversion from JsonValue representation to 'client' representation
-let toCoordinates (jObject : JsonValue) =
+let toCoordinates (jObject : JValue) =
     let rec loop 
         (fJArray: _ -> Pairs) 
         (fJObject: float -> float -> float -> float -> Pairs)
@@ -174,12 +233,12 @@ let toCoordinates (jObject : JsonValue) =
         jObject =
         let rec recurse = loop fJArray fJObject fJFloat fJString fJNull
         match jObject with
-        | JsonArray l ->
+        | JArray l ->
             let state = ResizeArray<_>()
             for obj in l do
                 state.Add(recurse obj)
             fJArray state
-        | JsonObject map ->
+        | JObject map ->
             if map.ContainsKey("pairs") then
                 recurse map["pairs"]
             else
@@ -189,9 +248,9 @@ let toCoordinates (jObject : JsonValue) =
                 let y1 = recurse map["y1"] |> partialToFloat
 
                 fJObject x0 y0 x1 y1
-        | JsonNum f -> fJFloat f
-        | JsonString s -> fJString s 
-        | JsonEnd -> fJNull ()
+        | JNum f -> fJFloat f
+        | JString s -> fJString s 
+        | JNull -> fJNull ()
     
     let fJObject x0 y0 x1 y1 = Complete (x0,y0,x1,y1)
     let fJArray (l : Pairs ResizeArray) = 
@@ -242,21 +301,62 @@ type PairsBuilder ()=
               
     member this.Build () = Array.ofSeq coordinates 
         
-let toCoordinates2 (jsonValue : JsonValue) =
+let toCoordinates2 (jsonValue : JValue) =
        
     let rec foldJson (builder : PairsBuilder) json =
        match json with
-       | JsonNum n -> builder.Value n
-       | JsonString _ -> builder
-       | JsonEnd -> builder
-       | JsonObject o ->
-           let l = Map.toList o
-           let folder (builder : PairsBuilder) (k : string,v : JsonValue) =
+       | JNum n -> builder.Value n
+       | JString _ -> builder
+       | JNull -> builder
+       | JObject o ->
+           let folder (builder : PairsBuilder) (k : string) (v : JValue) =
                let newBuilder = builder.Key k
                foldJson newBuilder v
-           List.fold folder builder l
-       | JsonArray arr -> List.fold foldJson builder arr
+           Map.fold folder builder o
+       | JArray arr -> List.fold foldJson builder arr
     
     let builder = foldJson (PairsBuilder()) jsonValue
     builder.Build()
-           
+    
+let toCoordinates3 (jsonValue : JValue) =
+    let unWrap jValue =
+        let fString s = s :> obj
+        let fNum n = n :> obj
+        let fBool b = b :> obj
+        let fNull = null
+        let fArray arr = arr :> obj
+        let fObject o = o :> obj
+        
+        foldBackJson fString fBool fNum fNull fArray fObject jValue (fun o -> unbox o : Map<string, obj>)
+        
+    let map = unWrap jsonValue
+    
+    let pairs : obj list = unbox map["pairs"]
+    
+    pairs
+    |> List.map (fun o -> unbox o |> (fun (m : Map<string, obj>) -> { x0= unbox m["x0"]; y0= unbox m["y0"]; x1=unbox m["x1"]; y1=unbox m["y1"]  }  ))
+    |> Array.ofList
+          
+let toCoordinates4 (jsonValue : JValue) =
+    printfn "toCoordinates4"
+    let unWrap jValue =
+        let fString s = s :> obj
+        let fNum n = n :> obj
+        let fBool b = b :> obj
+        let fNull = null
+        let fArray arr = arr :> obj
+        let fObject o = o :> obj
+        
+        foldBackBackJson fString fBool fNum fNull fArray fObject jValue (fun o -> unbox o : Map<string, obj>)
+        
+    printfn "unwrapping"
+    
+    let map = unWrap jsonValue
+    
+    printfn "unwrapped"
+    let pairs : obj list = unbox map["pairs"]
+    
+    pairs
+    |> List.map (fun o -> unbox o |> (fun (m : Map<string, obj>) -> { x0= unbox m["x0"]; y0= unbox m["y0"]; x1=unbox m["x1"]; y1=unbox m["y1"]  }  ))
+    |> Array.ofList
+          
