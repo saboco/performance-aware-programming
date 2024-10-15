@@ -24,11 +24,16 @@
     <Compile Include="Diagnostics.fs" />
     <Compile Include="Binary.fs" />
     <Compile Include="VirtualAddress.fs" />
-    <Compile Include="System.fs" />
+    <Compile Include="Windows.fs" />
     <Compile Include="Memory.fs" />
     <Compile Include="PageFault.fs" />
     <Compile Include="MemoryMapping.fs" />
     <Compile Include="PointerAnatomyTests.fs" />
+    <Compile Include="SetAssociativity.fs" />
+    <Compile Include="NonTemporalStores.fs" />
+    <Compile Include="Prefetching.fs" />
+    <Compile Include="Actor.fs" />
+    <Compile Include="FileRead.fs" />
     <Compile Include="CommandLine.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

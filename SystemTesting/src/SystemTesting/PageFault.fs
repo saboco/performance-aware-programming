@@ -6,8 +6,7 @@ open Microsoft.FSharp.NativeInterop
 open Diagnostics
 open System.IO.MemoryMappedFiles
 open System.IO
-open Memory
-open Native
+open Windows.Native
 
 let touchByInt64 _ touchSize (dPtr: nativeint) =
     let mutable dst: nativeptr<Int64> = dPtr.ToPointer() |> NativePtr.ofVoidPtr

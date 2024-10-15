@@ -19,9 +19,11 @@ set _dll_files=%_build_dir%\*dll
 set _release_dir=%_dir%\release
 set _debug_dir=%_dir%\
 
+IF NOT EXIST "%_release_dir%" mkdir "%_release_dir%"
+
 FOR %%G IN ("%_dll_files%") DO (
     copy %%G "%_release_dir%\"
-    copy %%G "%_dir%\src\haversine\bin\Debug\net8.0\"
+    copy %%G "%_dir%\src\SystemTesting\bin\Debug\net8.0\"
 )
 
 endlocal

@@ -7,8 +7,9 @@ open System.IO
 open Argu
 open Diagnostics
 open Timing
-open SystemTesting.Memory
-open SystemTesting.CommandLine
+open Memory
+open CommandLine
+open Windows.Native
 
 let checkStructure =
 #if DEBUG
@@ -70,6 +71,17 @@ let main (argv: string[]) =
             let y = Double.Parse(arr[1])
             let x = if log2 then Math.Log2 x else x
             x, y)
-        |> Memory.ReadWriteTests.showChart
-
+        |> Print.showChart
+    | SetAssociativity -> SetAssociativity.runSetAssociativity ()
+    | NonTemporalStores -> NonTemporalStores.runNonTemporalStores ()
+    | Prefetching -> Prefetching.runPrefetching ()
+    | FileRead args ->
+        let path = args.GetResult(FileReadArgs.Path)
+        FileRead.runFileRead path
+    | FileReadAndSum args ->
+        let path = args.GetResult(FileReadArgs.Path)
+        FileRead.runFileReadAndSum path
+    | FileReadAndSumOverlapped args ->
+        let path = args.GetResult(FileReadArgs.Path)
+        FileRead.runFileReadAndSumOverlapped path
     0

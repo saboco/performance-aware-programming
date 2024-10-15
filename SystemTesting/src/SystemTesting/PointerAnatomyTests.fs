@@ -1,15 +1,16 @@
 ﻿module SystemTesting.PointerAnatomyTests
 open Binary
 open VirtualAddress
+open Windows.Native
 
 let run () =
     for _ in 0..16 do
         let  pointer : nativeint =
-            Memory.Native.VirtualAlloc(
+            VirtualAlloc(
                 0,
                 uint64 (1024*1024),
-                Memory.AllocationType.MEM_RESERVE ||| Memory.AllocationType.MEM_COMMIT,
-                Memory.MemoryProtection.PAGE_READWRITE
+                AllocationType.MEM_RESERVE ||| AllocationType.MEM_COMMIT,
+                MemoryProtection.PAGE_READWRITE
             )
         
         let address = uint64 pointer

@@ -3,16 +3,10 @@
 open System
 open System.Runtime.InteropServices
 open Microsoft.FSharp.NativeInterop
-open SystemTesting.Memory
 open Memory.Buffers
-open Memory.Native
+open Windows.Native
 
 module CirularBuffer =
-    [<Literal>]
-    let INVALID_HANDLE_VALUE = -1
-
-    [<Literal>]
-    let NULL = 0
 
     [<Struct>]
     type CircularBuffer =
@@ -129,12 +123,6 @@ module CirularBuffer =
             printfn "FAILED"
 
 module TrackedBuffer =
-    [<Literal>]
-    let INVALID_HANDLE_VALUE = -1
-
-    [<Literal>]
-    let NULL = 0
-
     [<Struct; StructLayout(LayoutKind.Sequential)>]
     type AddressArray =
         { mutable Addresses: nativeptr<UIntPtr>

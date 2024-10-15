@@ -1,135 +1,11 @@
 ﻿module SystemTesting.Memory
 
 open System
-open System.Runtime.InteropServices
 open Microsoft.FSharp.NativeInterop
-open Plotly.NET
-
-[<Flags>]
-type AllocationType =
-    | MEM_COMMIT = 0x00001000u
-    | MEM_RESERVE = 0x00002000u
-    | MEM_REPLACE_PLACEHOLDER = 0x00004000u
-    | MEM_RESERVE_PLACEHOLDER = 0x00040000u
-    | MEM_RESET = 0x00080000u
-    | MEM_RESET_UNDO = 0x1000000u
-    | MEM_LARGE_PAGES = 0x20000000u // If you specify this value, you must also specify MEM_RESERVE and MEM_COMMIT.
-    | MEM_PHYSICAL = 0x00400000u // This value must be used with MEM_RESERVE and no other values.
-    | MEM_TOP_DOWN = 0x00100000u
-    | MEM_WRITE_WATCH = 0x00200000u // If you specify this value, you must also specify MEM_RESERVE.
-
-[<Flags>]
-type MemoryProtection =
-    | PAGE_EXECUTE = 0x10u
-    | PAGE_EXECUTE_READ = 0x20u
-    | PAGE_EXECUTE_READWRITE = 0x40u
-    | PAGE_EXECUTE_WRITECOPY = 0x80u
-    | PAGE_NOACCESS = 0x01u
-    | PAGE_READONLY = 0x02u
-    | PAGE_READWRITE = 0x04u
-    | PAGE_WRITECOPY = 0x08u
-    | PAGE_TARGETS_INVALID = 0x40000000u
-    | PAGE_TARGETS_NO_UPDATE = 0x40000000u
-    | PAGE_GUARD = 0x100u
-    | PAGE_NOCACHE = 0x200u // The PAGE_NOCACHE flag cannot be used with the PAGE_GUARD, PAGE_NOACCESS, or PAGE_WRITECOMBINE flags.
-    | PAGE_WRITECOMBINE = 0x400u
-
-type FreeType =
-    | MEM_DECOMMIT = 0x00004000u
-    | MEM_RELEASE = 0x00008000u
-    | MEM_COALESCE_PLACEHOLDERS = 0x00000001u
-    | MEM_PRESERVE_PLACEHOLDER = 0x00000002u
-
-[<Flags>]
-type WriteTrackingState =
-    | WRITE_WATCH_FLAG_RESET = 0x1u
 
 module Native =
-    [<Literal>]
-    let kernell32 = "kernel32.dll"
-
-    [<Literal>]
-    let kernellbase = "kernelbase.dll"
-
-    [<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
-    extern nativeint VirtualAlloc(
-        nativeint lpAddress,
-        UInt64 size,
-        AllocationType allocationType,
-        MemoryProtection memoryProtection
-    )
-
-    [<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
-    extern bool VirtualFree(nativeint lpAddress, UInt64 size, FreeType allocationType)
-
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
-    type ParameterType = { Type: UInt64; Reserved: UInt64 }
-
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
-    type MemExtendedParameter =
-        { ParameterType: ParameterType
-          ULong64: UInt64
-          Pointer: IntPtr
-          Size: IntPtr
-          Handle: IntPtr
-          ULong: UInt32 }
-
-    [<DllImport(kernellbase, CallingConvention = CallingConvention.Cdecl)>]
-    extern nativeint VirtualAlloc2(
-        nativeint hProcess,
-        nativeint baseAddress,
-        UInt64 size,
-        AllocationType allocationType,
-        MemoryProtection memoryProtection,
-        MemExtendedParameter* ex,
-        UInt32 parameterCount
-    )
-
-    [<DllImport(kernellbase, CallingConvention = CallingConvention.Cdecl)>]
-    extern nativeint MapViewOfFile3(
-        nativeint fileMapping,
-        nativeint hProcess,
-        nativeint baseAddress,
-        UInt64 offset,
-        UInt64 viewSize,
-        AllocationType allocationType,
-        MemoryProtection pageProtection,
-        MemExtendedParameter* ExtendedParameters,
-        UInt32 parameterCount
-    )
-
-    [<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
-    extern bool UnmapViewOfFile(nativeint lpBaseAddress)
-
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
-    type SecurityAttributes =
-        { Length: UInt32
-          SecurityDescriptor: IntPtr
-          InheritHandle: bool }
-
-    [<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
-    extern IntPtr CreateFileMapping(
-        IntPtr hFile,
-        UInt32 lpFileMappingAttributes,
-        MemoryProtection flProtect,
-        UInt32 dwMaximumSizeHigh,
-        UInt32 dwMaximumSizeLow,
-        UInt32 lpName
-    )
-
-    [<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
-    extern bool CloseHandle(IntPtr handle)
-
-    [<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
-    extern UInt32 GetWriteWatch(
-        WriteTrackingState flags,
-        IntPtr baseAddress,
-        UInt64 RegionSize,
-        UIntPtr* addresses,
-        UInt64* count,
-        UInt64* lpdwGranularity
-    )
-
+    open System.Runtime.InteropServices
+    
     [<DllImport("nop_loop.dll", CallingConvention = CallingConvention.Cdecl)>]
     extern void MOVAllBytesASM(UInt64 Count, byte* Data)
 
@@ -238,17 +114,22 @@ module Native =
 
         [<DllImport("unaligned_penalty.dll", CallingConvention = CallingConvention.Cdecl)>]
         extern void Read_Unaligned_16(UInt64 Count, byte* Data, Int64 chunk)
-
+        
 open Native
 
 #nowarn "9"
 
 module Buffers =
+    open SystemTesting.Windows.Native
+    open System.Runtime.InteropServices
+    
     [<Struct>]
     type Buffer =
         { mutable Count: UInt64
           mutable Data: nativeptr<byte> }
 
+    let isValid (buffer : Buffer) = buffer.Data <> NativePtr.nullPtr<byte>
+    
     let isInBounds (source: Buffer, at: UInt64) = at < source.Count
 
     let areEqual (a: Buffer) (b: Buffer) =
@@ -296,6 +177,17 @@ module Buffers =
             |> ignore
 
         buffer <- Unchecked.defaultof<Buffer>
+        
+    let getMaxOSRandomCount () : UInt64 = 0xffffffffUL
+
+    let readOSRandomBytes (count: UInt64) (dest: nativeptr<byte>) =
+        let mutable result = false
+
+        if count < getMaxOSRandomCount () then
+            let r = BCryptGenRandom(0, dest, uint count, 0x00000002u)
+            result <- r = 0
+
+        result
 
 open Buffers
 
@@ -379,17 +271,6 @@ module ReadWriteTests =
         | Every4
         | RTRandom
         | OSRandom
-
-    let getMaxOSRandomCount () : UInt64 = 0xffffffffUL
-
-    let readOSRandomBytes (count: UInt64) (dest: nativeptr<byte>) =
-        let mutable result = false
-
-        if count < getMaxOSRandomCount () then
-            let r = BCryptGenRandom(0, dest, uint count, 0x00000002u)
-            result <- r = 0
-
-        result
 
     let fillWithRandomBytes (dest: Buffer) =
         let maxRandCount = getMaxOSRandomCount ()
@@ -656,17 +537,6 @@ module ReadWriteTests =
 
         freeBufferV &buffer
 
-    let showChart dataPoints =
-        let chartLayout = Layout.init (Width = 1200, Height = 900)
-
-        Chart.Line(xy = dataPoints, ShowMarkers = true)
-        |> Chart.withLayout chartLayout
-        |> Chart.withLineStyle (Width = 2., Dash = StyleParam.DrawingStyle.Dot)
-        |> Chart.withTitle ("Cache throughput")
-        |> Chart.withXAxisStyle ("KB")
-        |> Chart.withYAxisStyle ("GB/s")
-        |> Chart.show
-
     let runPowerOfTwoCacheTests () =
 
         let size = 1024UL * 1024UL * 1024UL
@@ -728,7 +598,7 @@ module ReadWriteTests =
 
                    size, bandwidth |]
 
-        showChart dataPoints
+        Print.showChart dataPoints
 
         freeBufferV &buffer
 
@@ -835,9 +705,9 @@ module ReadWriteTests =
 
                    size, bandwidth |]
 
-        showChart dataPoints
+        Print.showChart dataPoints
 
-        dataPoints |> Array.map (fun (s, bw) -> Math.Log2(float s), bw) |> showChart
+        dataPoints |> Array.map (fun (s, bw) -> Math.Log2(float s), bw) |> Print.showChart
 
         dataPoints
         |> Array.map (fun (s, bw) -> printfn $"{s},{bw}"; $"{s},{bw}")

@@ -9,16 +9,46 @@ open System.Runtime.InteropServices
 type [<Measure>] ms
 type [<Measure>] cycle
 type [<Measure>] b
+type [<Measure>] Kb
 type [<Measure>] Mb
 type [<Measure>] Gb
 type [<Measure>] s
 
-let bytesPerMegabyte : float<b Mb^-1> = 1024.0*1024.0<b/Mb> 
+let bytesPerMegabyte : float<b Mb^-1> = 1024.0*1024.0<b/Mb>
+let bytesPerKilobyte : float<b Kb^-1> = 1024.0<b/Kb>
 let megabytesPerGigabyte : float<Mb Gb^-1> = 1024.0<Mb/Gb>
 
 let bytesToMegabytes (x : int64<b>) =  ((float x) * 1.0<b>) / bytesPerMegabyte
+let bytesToKilobytes (x: int64<b>) = ((float x) * 1.0<b>) / bytesPerKilobyte
 let megabytesToGigabytes (x : float<Mb>) = x / megabytesPerGigabyte
 
+module Print =
+    open Plotly.NET
+    
+    let showChart dataPoints =
+        let chartLayout = Layout.init (Width = 1200, Height = 900)
+
+        Chart.Line(xy = dataPoints, ShowMarkers = true)
+        |> Chart.withLayout chartLayout
+        |> Chart.withLineStyle (Width = 2., Dash = StyleParam.DrawingStyle.Dot)
+        |> Chart.withTitle ("Cache throughput")
+        |> Chart.withXAxisStyle ("Kb")
+        |> Chart.withYAxisStyle ("GB/s")
+        |> Chart.show
+        
+    let showMultiLineChart (title: string) (dataPoints : (string * (#IConvertible * #IConvertible) seq) seq)= 
+        let chartLayout = Layout.init (Width = 1200, Height = 900)
+
+        dataPoints
+        |> Seq.map(fun (name, dp) ->  Chart.Line(xy = dp, ShowMarkers = true, Name = name))
+        |> Chart.combine
+        |> Chart.withLayout chartLayout
+        |> Chart.withLineStyle (Width = 2., Dash = StyleParam.DrawingStyle.Dot)
+        |> Chart.withTitle title
+        |> Chart.withXAxisStyle ("Kb")
+        |> Chart.withYAxisStyle ("GB/s")
+        |> Chart.show
+        
 module Native =
     let [<Literal>] rdtsc_dll = "rdtsc_debug"
     let [<Literal>] windows_metrics_dll = "windows_metrics_debug"
