@@ -42,6 +42,7 @@ type SystemArgs =
     | [<SubCommand; CliPrefix(CliPrefix.None)>] FileRead of ParseResults<FileReadArgs>
     | [<SubCommand; CliPrefix(CliPrefix.None)>] FileReadAndSum of ParseResults<FileReadArgs>
     | [<SubCommand; CliPrefix(CliPrefix.None)>] FileReadAndSumOverlapped of ParseResults<FileReadArgs>
+    | [<SubCommand; CliPrefix(CliPrefix.None)>] MemoryMappedFileAndSumOverlapped of ParseResults<FileReadArgs>
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -59,3 +60,4 @@ type SystemArgs =
             | FileRead _ -> "test the file read"
             | FileReadAndSum _ -> "test the file read and sum the values"
             | FileReadAndSumOverlapped _ -> "test the file read and sum the values with overlapped reads"
+            | MemoryMappedFileAndSumOverlapped _ -> "test the memory mapped file read and sum the values with overlapped reads"

@@ -6,12 +6,69 @@ open Microsoft.FSharp.NativeInterop
 open Memory.Buffers
 open Windows.Native
 
+module MemoryMappedFile =
+    
+    [<Struct>]
+    type MemoryMappedFile = {
+        mutable File : HANDLE
+        mutable Mapping : HANDLE
+        mutable Memory : Buffer
+    }
+
+    let openMemoryMappedFile (fileName:string) =
+        let mutable fileNameBuffer = System.Text.Encoding.UTF8.GetBytes(fileName)
+        use ptrFileName = fixed fileNameBuffer
+        let mutable mappedFile = { File = INVALID_HANDLE_VALUE; Mapping = INVALID_HANDLE_VALUE; Memory = Unchecked
+        .defaultof<Buffer> }
+        
+        mappedFile.File <-
+            CreateFileA(
+                    ptrFileName |> NativePtr.toNativeInt,
+                    GenericAccessRights.GENERIC_READ,
+                    FileShareMode.FILE_SHARE_READ||| FileShareMode.FILE_SHARE_WRITE,
+                    0u,
+                    CreationDisposition.OPEN_EXISTING,
+                    FileAttributesAndFlags.FILE_ATTRIBUTE_NORMAL,
+                    0)
+        mappedFile.Mapping <- CreateFileMappingA(mappedFile.File, 0u, MemoryProtection.PAGE_READONLY, 0u, 0u, 0)
+        
+        mappedFile
+    
+    let isValid (mappedFile : MemoryMappedFile) =
+        mappedFile.Mapping <> NULL
+        
+    let setMapRegion (mappedFile : byref<MemoryMappedFile>) (offset : int64) (size : uint64) =
+        if Memory.Buffers.isValid mappedFile.Memory then
+            UnmapViewOfFile(NativePtr.toNativeInt mappedFile.Memory.Data) |> ignore
+            mappedFile.Memory <- Unchecked.defaultof<Buffer>
+            
+        if size > 0UL then
+            let offsetHigh = uint32 (offset >>> 32);
+            let offsetLow = uint32 (offset &&& 0xffffffff);
+            let data =
+                MapViewOfFile(mappedFile.Mapping, FileMapAccess.FILE_MAP_READ, offsetHigh, offsetLow, size)
+                |> NativePtr.ofNativeInt<byte>
+                
+            if data <> NativePtr.nullPtr<byte> then
+                mappedFile.Memory.Count <- size
+                mappedFile.Memory.Data <-  data
+    
+    let closeMemoryMappedFile (mappedFile : byref<MemoryMappedFile>) =
+        setMapRegion &mappedFile 0L 0UL
+        if isValid mappedFile then
+            CloseHandle(mappedFile.Mapping) |> ignore
+                
+        if mappedFile.File <> INVALID_HANDLE_VALUE then
+            CloseHandle(mappedFile.File) |> ignore
+    
+        mappedFile <- Unchecked.defaultof<MemoryMappedFile>
+        
 module CirularBuffer =
 
     [<Struct>]
     type CircularBuffer =
         { mutable Root: Buffer
-          FileMapping: IntPtr
+          FileMapping: HANDLE
           RepCount: UInt32 }
 
     let isValid (circularBuffer: CircularBuffer) =
@@ -51,8 +108,7 @@ module CirularBuffer =
                     MemoryProtection.PAGE_READWRITE,
                     uint32 (dataSize >>> 32),
                     uint32 (dataSize &&& 0xffffffffUL),
-                    0u
-                )
+                    0)
               RepCount = repCount }
 
         if circularBuffer.FileMapping <> INVALID_HANDLE_VALUE then

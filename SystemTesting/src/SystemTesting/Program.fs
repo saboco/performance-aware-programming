@@ -84,4 +84,7 @@ let main (argv: string[]) =
     | FileReadAndSumOverlapped args ->
         let path = args.GetResult(FileReadArgs.Path)
         FileRead.runFileReadAndSumOverlapped path
+    | MemoryMappedFileAndSumOverlapped args ->
+        let path = args.GetResult(FileReadArgs.Path)
+        FileRead.runMemoryMappedFileAndSumOverlapped path
     0

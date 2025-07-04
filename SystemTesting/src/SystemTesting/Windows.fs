@@ -43,6 +43,13 @@ type MemoryProtection =
     | PAGE_GUARD = 0x100u
     | PAGE_NOCACHE = 0x200u // The PAGE_NOCACHE flag cannot be used with the PAGE_GUARD, PAGE_NOACCESS, or PAGE_WRITECOMBINE flags.
     | PAGE_WRITECOMBINE = 0x400u
+    | SEC_COMMIT = 0x8000000u
+    | SEC_IMAGE = 0x1000000u
+    | SEC_IMAGE_NO_EXECUTE = 0x11000000u
+    | SEC_LARGE_PAGES = 0x80000000u
+    | SEC_NOCACHE = 0x10000000u
+    | SEC_RESERVE = 0x4000000u
+    | SEC_WRITECOMBINE = 0x40000000u
 
 type FreeType =
     | MEM_DECOMMIT = 0x00004000u
@@ -112,6 +119,17 @@ type FileAttributesAndFlags =
     | FILE_FLAG_SEQUENTIAL_SCAN = 0x08000000u
     | FILE_FLAG_WRITE_THROUGH = 0x80000000u
     
+[<Flags>]
+type FileMapAccess =
+    | FILE_MAP_ALL_ACCESS = 0x000f001fu
+    | FILE_MAP_READ = 0x0004u
+    | FILE_MAP_WRITE = 0x0002u
+    | FILE_MAP_COPY = 0x0001u
+    | FILE_MAP_EXECUTE = 0x0020u
+    | FILE_MAP_LARGE_PAGES = 0x20000000u
+    | FILE_MAP_TARGETS_INVALID = 0x40000000u
+    
+    
 [<Struct; StructLayout(LayoutKind.Sequential)>]
 type OemId =
     { ProcessorArchitecture: ProcessorArchitecture
@@ -158,6 +176,11 @@ type LPSECURITY_ATTRIBUTES = UInt32 // it can be an actual pointer to SECURITY_A
 type DWORD = UInt32
 type LPCSTR = IntPtr
 type BOOL = UInt32
+type SIZE_T = UInt64
+type ULONG64 = UInt64
+type LPVOID = IntPtr
+type PVOID = IntPtr
+type LPCVOID = IntPtr
 
 let [<Literal>] FALSE : BOOL = 0u
 
@@ -171,14 +194,22 @@ extern nativeint VirtualAlloc2(
     MemExtendedParameter* ex,
     UInt32 parameterCount
 )
+[<DllImport(kernellbase, CallingConvention = CallingConvention.Cdecl)>]
+extern LPVOID MapViewOfFile(
+  HANDLE hFileMappingObject,
+  FileMapAccess  dwDesiredAccess,
+  DWORD  dwFileOffsetHigh,
+  DWORD  dwFileOffsetLow,
+  SIZE_T dwNumberOfBytesToMap
+)
 
 [<DllImport(kernellbase, CallingConvention = CallingConvention.Cdecl)>]
-extern nativeint MapViewOfFile3(
-    nativeint fileMapping,
-    nativeint hProcess,
-    nativeint baseAddress,
-    UInt64 offset,
-    UInt64 viewSize,
+extern PVOID MapViewOfFile3(
+    HANDLE fileMapping,
+    HANDLE hProcess,
+    PVOID baseAddress,
+    ULONG64 offset,
+    SIZE_T viewSize,
     AllocationType allocationType,
     MemoryProtection pageProtection,
     MemExtendedParameter* ExtendedParameters,
@@ -186,7 +217,7 @@ extern nativeint MapViewOfFile3(
 )
 
 [<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
-extern bool UnmapViewOfFile(nativeint lpBaseAddress)
+extern BOOL UnmapViewOfFile(LPCVOID lpBaseAddress)
 
 [<Struct; StructLayout(LayoutKind.Sequential)>]
 type SecurityAttributes =
@@ -201,7 +232,17 @@ extern HANDLE CreateFileMapping(
     MemoryProtection flProtect,
     DWORD dwMaximumSizeHigh,
     DWORD dwMaximumSizeLow,
-    DWORD lpName
+    LPCSTR lpName
+)
+
+[<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
+extern HANDLE CreateFileMappingA(
+    HANDLE hFile,
+    LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
+    MemoryProtection flProtect,
+    DWORD dwMaximumSizeHigh,
+    DWORD dwMaximumSizeLow,
+    LPCSTR lpName
 )
 
 [<DllImport(kernell32, CallingConvention = CallingConvention.Cdecl)>]
