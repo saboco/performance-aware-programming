@@ -1,41 +1,46 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>Haversine</RootNamespace>
-  </PropertyGroup>
-  <PropertyGroup>
-    <FSharpPrefer64BitTools>True</FSharpPrefer64BitTools>
-    <DefineConstants>FULL_PROFILING</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <PlatformTarget>x64</PlatformTarget>
-    <DebugType>full</DebugType>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-    <PlatformTarget>x64</PlatformTarget>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <Tailcalls>False</Tailcalls>
-  </PropertyGroup>
-  
-  <ItemGroup>
-    <Compile Include="..\..\..\SystemTesting\src\SystemTesting\Diagnostics.fs">
-      <Link>Diagnostics.fs</Link>
-    </Compile>
-    <Compile Include="Calculator.fs" />
-    <Compile Include="Generator.fs" />
-    <Compile Include="Json.fs" />
-    <Compile Include="Program.fs" />
-    <None Include="..\..\..\SystemTesting\build\rdtsc_debug.dll">
-      <Link>rdtsc_debug.dll</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <RootNamespace>Haversine</RootNamespace>
+    </PropertyGroup>
+    <PropertyGroup>
+        <FSharpPrefer64BitTools>True</FSharpPrefer64BitTools>
+        <DefineConstants>FULL_PROFILING</DefineConstants>
+    </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+        <PlatformTarget>x64</PlatformTarget>
+        <DebugType>full</DebugType>
+    </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+        <PlatformTarget>x64</PlatformTarget>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+        <Tailcalls>False</Tailcalls>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Argu" Version="6.2.2" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="..\..\..\SystemTesting\src\SystemTesting\Diagnostics.fs">
+            <Link>Diagnostics.fs</Link>
+        </Compile>
+        <Compile Include="Calculator.fs"/>
+        <Compile Include="Generator.fs"/>
+        <Compile Include="Json.fs"/>
+        <Compile Include="Program.fs"/>
+        <None Include="..\..\..\SystemTesting\build\rdtsc_debug.dll">
+            <Link>rdtsc_debug.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+        <Content Include="..\..\..\SystemTesting\build\windows_metrics_debug.dll">
+          <Link>windows_metrics_debug.dll</Link>
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Argu" Version="6.2.2"/>
+        <PackageReference Include="Plotly.NET" Version="4.2.0"/>
+    </ItemGroup>
 
 </Project>

@@ -27,30 +27,38 @@ let generateHaversineData earthRadius =
      File.WriteAllText($"{__SOURCE_DIRECTORY__}\..\..\input\expectedSum.data", generatedSum.ToString()))
 
 let treatHaversineData earthRadius =
-    Timer.BeginTime()
     let mutable json = ""
 
     let mutable expectedSum = 0.0
     printfn "Reading data"
 
-    (use t = new Timer(0L<b>, "read")
+    ( //use t = new Timer(0L<b>, "read")
      json <- File.ReadAllText($"{__SOURCE_DIRECTORY__}\..\..\input\data.json")
 
      expectedSum <-
          File.ReadAllText($"{__SOURCE_DIRECTORY__}\..\..\input\expectedSum.data")
          |> float
 
-     t.CountBytes(int64 json.Length * 1L<b>))
+     // t.CountBytes(int64 json.Length * 1L<b>)
+     )
 
     printfn "Deserializing data"
     let pairs = Json.fromJson json Json.toCoordinates
 
     printfn "Haversine sum"
-    let sum = sumHaversineDistances earthRadius pairs
+    
+    // let results =
+    //     let bytes = int64 (pairs.Length * 4 * sizeof<float>) * 1L<b>
+    //     Repetition.repeat false 300L<s> (fun () ->
+    //     let _ = sumHaversineDistances earthRadius pairs
+    //     bytes)
+    //
+    // Repetition.print results
 
+    Timer.BeginTime()
+    let sum = sumHaversineDistances earthRadius pairs
     printfn
         $"Number of pairs: {pairs.Length}\nActual sum: {sum}\nExpected sum: {expectedSum}\nDifference: {sum - expectedSum}"
-
     Timer.EndTime()
     Timer.Print()
    

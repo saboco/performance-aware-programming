@@ -67,7 +67,7 @@ type JValue =
 /// very naif implementation of a json parser
 /// the way to go in the optimization is to explore combinator parsers and how it compares in performance with this implementation
 let fromJson (json:string) f =
-    use _ = new Timer(int64 json.Length * 1L<b>)
+    // use _ = new Timer(int64 json.Length * 1L<b>)
     
     let (|IsNum|_|) (c: char) = 
         if Char.IsDigit(c) || c='-' then Some () else None
