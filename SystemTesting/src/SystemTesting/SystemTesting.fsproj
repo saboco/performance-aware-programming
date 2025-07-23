@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <Compile Include="Diagnostics.fs" />
+    <Compile Include="CustomMath.fs" />
     <Compile Include="Binary.fs" />
     <Compile Include="VirtualAddress.fs" />
     <Compile Include="Windows.fs" />

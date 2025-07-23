@@ -439,7 +439,7 @@ module Precision =
 
         Array.fold folder initialState test.Samples
 
-    let compare inspectFn (test: PrecisionTest) (n: int) =
+    let compare inspectFn (n: int) (test: PrecisionTest) =
 
         let low, hi = test.Range
         let inputs = Array.zeroCreate n
