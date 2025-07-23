@@ -35,6 +35,7 @@
     <Compile Include="Actor.fs" />
     <Compile Include="FileRead.fs" />
     <Compile Include="CommandLine.fs" />
+    <Compile Include="MathTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

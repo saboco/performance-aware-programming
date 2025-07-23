@@ -1,7 +1,6 @@
 ﻿module SystemTesting.CommandLine
 
 open Argu
-open SystemTesting.Diagnostics
 
 type CacheArgs =
     | [<Unique>] PowerOfTwo
@@ -43,6 +42,7 @@ type SystemArgs =
     | [<SubCommand; CliPrefix(CliPrefix.None)>] FileReadAndSum of ParseResults<FileReadArgs>
     | [<SubCommand; CliPrefix(CliPrefix.None)>] FileReadAndSumOverlapped of ParseResults<FileReadArgs>
     | [<SubCommand; CliPrefix(CliPrefix.None)>] MemoryMappedFileAndSumOverlapped of ParseResults<FileReadArgs>
+    | [<SubCommand; CliPrefix(CliPrefix.None)>] MathTest
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -61,3 +61,4 @@ type SystemArgs =
             | FileReadAndSum _ -> "test the file read and sum the values"
             | FileReadAndSumOverlapped _ -> "test the file read and sum the values with overlapped reads"
             | MemoryMappedFileAndSumOverlapped _ -> "test the memory mapped file read and sum the values with overlapped reads"
+            | MathTest -> "test some Math functions and compare precision with references values"
