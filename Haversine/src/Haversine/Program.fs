@@ -56,14 +56,26 @@ let treatHaversineData earthRadius =
     // Repetition.print results
 
     Timer.BeginTime()
-    let sum = sumHaversineDistances earthRadius pairs
+    let t1 = new Timer(int64 (pairs.Length * 4 * sizeof<float>) * 1L<b>)
+    let sum = sumHaversineDistances earthRadius referenceHaversine pairs
     printfn
-        $"Number of pairs: {pairs.Length}\nActual sum: {sum}\nExpected sum: {expectedSum}\nDifference: {sum - expectedSum}"
+        $"[Reference] Number of pairs: {pairs.Length}\nActual sum: {sum}\nExpected sum: {expectedSum}\nDifference: {sum - expectedSum}"
     Timer.EndTime()
+    (t1 : IDisposable).Dispose()
+    Timer.Print()
+    
+    Timer.BeginTime()
+    let t2 = new Timer(int64 (pairs.Length * 4 * sizeof<float>) * 1L<b>)
+    let sum = sumHaversineDistances earthRadius customHaversine pairs
+    printfn
+        $"[Custom] Number of pairs: {pairs.Length}\nActual sum: {sum}\nExpected sum: {expectedSum}\nDifference: {sum - expectedSum}"
+    
+    Timer.EndTime()
+    (t2 : IDisposable).Dispose()
     Timer.Print()
    
 [<EntryPoint>]
-let main (argv : string []) =
+let main (_ : string []) =
     printfn $"CPU Frequency {estimateCpuFrequency ()} Hz"
 
     let earthRadius = 6372.8

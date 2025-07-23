@@ -24,6 +24,9 @@
         <Compile Include="..\..\..\SystemTesting\src\SystemTesting\Diagnostics.fs">
             <Link>Diagnostics.fs</Link>
         </Compile>
+        <Compile Include="..\..\..\SystemTesting\src\SystemTesting\CustomMath.fs">
+          <Link>CustomMath.fs</Link>
+        </Compile>
         <Compile Include="Calculator.fs"/>
         <Compile Include="Generator.fs"/>
         <Compile Include="Json.fs"/>

@@ -7,10 +7,10 @@ module SystemTesting.CustomMath
     let [<Literal>] Pi64 = 3.14159265358979323846264338327950288419716939937510582097494459230781640628
     let [<Literal>] HalfPi = Pi64/2.0
     
-    let fabs (x : double) : double = Math.Abs x
-    let fma (x : double) (y : double) (z: double) : double = Math.FusedMultiplyAdd(x, y, z)
+    let inline fabs (x : double) : double = Math.Abs x
+    let inline fma (x : double) (y : double) (z: double) : double = Math.FusedMultiplyAdd(x, y, z)
     
-    let sin (origX : double) =
+    let inline sin (origX : double) =
         let halfPi :double = HalfPi
         let posX : double = Math.Abs(origX);
         let x : double = if posX > halfPi then Pi64 - posX else posX
@@ -31,16 +31,16 @@ module SystemTesting.CustomMath
         let result = if origX < 0 then -1.0 * r else r
         result
         
-    let cos (x : double) =
+    let inline cos (x : double) =
         let result = sin (x + HalfPi)
         result
         
-    let sqrt (x : double) =
+    let inline sqrt (x : double) =
         Vector128.CreateScalar x
         |> Sse2.SqrtScalar 
         |> (fun v -> v[0])
         
-    let asin (origX : double) =
+    let inline asin (origX : double) =
         let needsTransform = origX > 0.7071067811865475244
         let x = if needsTransform then sqrt (1.0 - origX*origX) else origX
         
